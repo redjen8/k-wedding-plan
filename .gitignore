@@ -1,5 +1,6 @@
 .omc/
 .idea/
+denylist.txt
 *.xlsx
 __pycache__/
 .DS_Store
