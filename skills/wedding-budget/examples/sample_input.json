@@ -8,6 +8,7 @@
   "guaranteed_guests": 220,
   "avg_gift": 117000,
   "reserve_rate": 0.03,
+  "dress_shops": ["A드레스", "B드레스", "C드레스"],
   "funds": [
     {"name": "저축", "groom": 18000000, "bride": 16000000},
     {"name": "부모님 지원", "groom": 10000000, "bride": 5000000},

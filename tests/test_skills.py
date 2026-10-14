@@ -89,7 +89,7 @@ def test_budget(tmp):
     r = build(BUDGET, sample(BUDGET), out)
     assert r.returncode == 0, r.stderr
     wb = openpyxl.load_workbook(out)
-    assert wb.sheetnames == ["대시보드", "기본정보", "하객식대", "지출계획", "결제기록", "월별자금", "기준표"], wb.sheetnames
+    assert wb.sheetnames == ["대시보드", "기본정보", "하객식대", "지출계획", "드레스투어", "결제기록", "월별자금", "기준표"], wb.sheetnames
     plan = wb["지출계획"]
     for col in "FGLNOQRS":  # 대관료 행의 계산 열은 수식이어야 함
         assert str(plan[f"{col}6"].value).startswith("="), (col, plan[f"{col}6"].value)
@@ -106,7 +106,12 @@ def test_budget(tmp):
                         dict(base, payments=[{"item": "없는항목", "amount": 1}]),
                         dict(base, payments=[{"item": "대관료", "amount": 1, "method": "수표"}]),
                         dict(base, extra_items=[{"name": "대관료"}]),  # 기본 항목과 이름 중복
-                        dict(base, extra_items=[{"name": "꽃*"}])], tmp)
+                        dict(base, extra_items=[{"name": "꽃*"}]),
+                        dict(base, dress_shops=["a", "b", "c", "d"]),  # 최대 3곳
+                        dict(base, dress_shops=["a", "a"]), dict(base, dress_shops=[" "]),
+                        dict(base, dress_shops=["=A"]), dict(base, dress_shops=["A*"]),
+                        dict(base, dress_mode="둘다"),
+                        dict(base, dress_mode="지정", dress_shops=["a", "b"])], tmp)  # 지정은 1곳만
     minimal = {k: base[k] for k in ("wedding_date", "region", "meal_price", "guaranteed_guests")}
     r = build(BUDGET, minimal, tmp / "bmin.xlsx")
     assert r.returncode == 0, r.stderr
@@ -144,6 +149,79 @@ def test_budget(tmp):
     wb["기본정보"]["B7"] = "서울"
     wb.save(tmp / "seoul.xlsx")
     assert calc(tmp / "seoul.xlsx")["지출계획!Q6"] == 630 * 10000  # 지역을 바꾸면 기준값도 바뀜
+
+
+def test_dress_tour(tmp):
+    bench = json.loads((BUDGET / "references" / "benchmarks.json").read_text("utf-8"))
+    names = {it["name"] for it in bench["items"]}
+    assert all(c["link"] in names for c in bench["dress_tour"]["costs"])
+
+    data = sample(BUDGET)
+    data["items"]["헬퍼(촬영·본식)"] = {"quote": 500000}  # 직접 준 견적은 연동보다 우선
+    data["items"]["2부 드레스"] = {"budget": 400000}
+    out = tmp / "dress.xlsx"
+    r = build(BUDGET, data, out)
+    assert r.returncode == 0, r.stderr
+    wb = openpyxl.load_workbook(out)
+    plan = wb["지출계획"]
+    row = {plan[f"B{r}"].value: r for r in range(6, plan.max_row + 1) if plan[f"B{r}"].value}
+    assert plan[f"D{row['헬퍼(촬영·본식)']}"].value == 500000
+    assert str(plan[f"D{row['드레스(단품)']}"].value).startswith("=")
+    ws = wb["드레스투어"]
+    lab = {ws[f"B{r}"].value: r for r in range(5, 40) if ws[f"B{r}"].value}
+    assert ws[f"C{lab['샵당 피팅비']}"].value == bench["dress_tour"]["fitting_fee"] == 55000
+    if not formulas:
+        return
+    # 투어: A·B·C드레스 3곳, 피팅비 55,000씩 자동 → 165,000
+    fee, tours = 55000, 3 * 55000
+    for col, dress in zip("CDE", (1600000, 1800000, 2000000)):
+        ws[f"{col}{lab['드레스 기본가(촬영+본식)']}"] = dress
+    ws[f"D{lab['2부 드레스']}"] = 0  # B드레스는 2부 드레스 포함
+    d, e, g = (lambda name, c=c: f"지출계획!{c}{row[name]}" for c in "DEG")
+    t = lambda label, col: f"드레스투어!{col}{lab[label]}"
+    for pick, burden in ((None, None), ("B드레스", 1800000 + tours), ("옛이름", None)):
+        ws["C7"] = pick
+        path = tmp / f"dress_{pick}.xlsx"
+        wb.save(path)
+        vals = calc(path)
+        assert_no_errors(vals, path.name)
+        assert vals[t("투어 피팅비", "E")] == fee
+        assert vals[t("이 샵으로 정할 때 총부담", "C")] == 1600000 + tours  # 투어한 샵 피팅비 전부
+        assert vals[t("총부담 최저", "C")] == "A드레스"
+        assert vals[d("드레스 투어 피팅비")] == tours, pick  # 선택과 상관없이 투어 샵 합계
+        if burden is None:  # 선택 없음·목록에 없는 이름: 드레스(단품)은 예산으로
+            assert vals[d("드레스(단품)")] == "", pick
+            assert (vals["드레스투어!D7"] == "") == (pick is None), vals["드레스투어!D7"]
+        else:  # 지출계획 연동액 합계 = 그 샵의 총부담
+            assert vals[g("드레스(단품)")] + vals[g("드레스 투어 피팅비")] == burden, pick
+            assert "패키지" in vals["드레스투어!D7"]  # 샘플은 스드메 패키지 계약이라 중복 경고
+            assert vals[g("2부 드레스")] == 0  # 0원도 입력값. 예산 40만으로 돌아가지 않음
+
+    # 이름 없는 열에는 피팅비가 붙지 않는다: 1곳만 투어하면 55,000
+    one = tmp / "dress_one.xlsx"
+    assert build(BUDGET, dict(data, dress_shops=["A드레스"]), one).returncode == 0
+    vals = calc(one)
+    assert_no_errors(vals, one.name)
+    assert vals[d("드레스 투어 피팅비")] == fee and vals[t("샵 총액", "D")] == ""
+
+    # 지정: 샵 1곳, 피팅비 없음, 혜택 30만은 할인 칸으로
+    path = tmp / "dress_pick.xlsx"
+    assert build(BUDGET, dict(data, dress_mode="지정", dress_shops=["A드레스"]), path).returncode == 0
+    wb = openpyxl.load_workbook(path)
+    ws = wb["드레스투어"]
+    ws[f"C{lab['드레스 기본가(촬영+본식)']}"], ws[f"C{lab['할인·지정 혜택']}"] = 2000000, 300000
+    ws["C7"] = "A드레스"
+    wb.save(path)
+    vals = calc(path)
+    assert_no_errors(vals, path.name)
+    assert vals[d("드레스 투어 피팅비")] == 0 and vals[e("드레스(단품)")] == 300000
+    assert vals[g("드레스(단품)")] == vals[t("이 샵으로 정할 때 총부담", "C")] == 1700000
+    # 지정인데 샵 2를 적고 고르면: 경고, 지출계획에 안 들어감
+    ws["D5"], ws[f"D{lab['드레스 기본가(촬영+본식)']}"], ws["C7"] = "B드레스", 1000000, "B드레스"
+    wb.save(path)
+    vals = calc(path)
+    assert vals["드레스투어!D6"] != "" and vals["드레스투어!C8"] == ""
+    assert vals[t("샵 총액", "D")] == "" and vals[d("드레스(단품)")] == ""
 
 
 # ---------- wedding-schedule ----------
@@ -288,6 +366,7 @@ def main():
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
         test_budget(tmp)
+        test_dress_tour(tmp)
         test_schedule(tmp)
         test_package()
         test_no_personal_data()

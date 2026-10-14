@@ -52,6 +52,7 @@ COLS = ["대분류", "항목", "내 예산", "견적", "할인", "확정액", "�
 INPUT_COLS = "CDEHIJKMP"
 FIRST = 6  # 지출계획 첫 데이터 행
 PAY_FIRST, PAY_ROWS = 6, 200  # 결제기록 입력 행
+DRESS_SHOPS = 3  # 드레스투어 비교 샵 수. 보통 2~3곳 투어
 PAY_LAST = PAY_FIRST + PAY_ROWS - 1
 PAY = "결제기록!"
 PAY_ITEM, PAY_AMT = f"{PAY}$B${PAY_FIRST}:$B${PAY_LAST}", f"{PAY}$D${PAY_FIRST}:$D${PAY_LAST}"
@@ -242,7 +243,7 @@ def build_plan(wb, d, meal_ref):
             c = ws[f"{col}{r}"]
             c.value = values.get(col)
             style_input(c, "yyyy-mm-dd" if col in "IKM" else (WON if col in "CDEHJ" else None))
-        ws[f"F{r}"] = f'=IF(D{r}="","",MAX(D{r}-E{r},0))'
+        ws[f"F{r}"] = f'=IF(D{r}="","",MAX(D{r}-N(E{r}),0))'  # E 가 드레스투어 연동으로 "" 일 수 있음
         ws[f"G{r}"] = f'=IF(F{r}<>"",F{r},IF(C{r}<>"",C{r},0))'
         ws[f"L{r}"] = f'=IF(G{r}=0,"",MAX(G{r}-H{r}-J{r},0))'
         ws[f"N{r}"] = f"=SUMIFS({PAY_AMT},{PAY_ITEM},$B{r})"
@@ -286,6 +287,136 @@ def build_plan(wb, d, meal_ref):
     ws["B4"] = "빨간 항목명 = 놓치기 쉬운 비용인데 아직 0원"
     ws["B4"].font = F_NOTE
     return FIRST, last
+
+
+def build_dress_tour(wb, d, first, last):
+    ws = wb.create_sheet("드레스투어")
+    ws["A1"], ws["A1"].font = "드레스 투어 비교", F_TITLE
+    ws["A2"] = ("방식을 고르고 샵별 비용을 적은 뒤, 정한 샵을 '선택한 샵'에서 고르면 지출계획 견적에 들어갑니다. "
+                "스드메 패키지로 계약했으면 '선택한 샵'을 비워 두세요. 지출계획 견적 칸에 숫자를 직접 치면 연동이 끊깁니다.")
+    ws["A3"] = ("투어: 샵 2~3곳, 이름을 적은 샵마다 '샵당 피팅비'가 붙습니다(샵마다 다르면 덮어쓰세요). "
+                "지정: 샵 1에만 적고 피팅비는 없습니다. 지정 혜택 중 금전 혜택은 '할인·지정 혜택'에, 그 밖의 혜택은 아래 '지정 혜택'에 적으세요.")
+    for c in ("A2", "A3"):
+        ws[c].font = F_NOTE
+    header(ws, 4, ["분류", "항목"] + [f"샵 {i}" for i in range(1, DRESS_SHOPS + 1)])
+    shops = d.get("dress_shops") or []
+    last_col = chr(ord("C") + DRESS_SHOPS - 1)
+    others = f"D5:{last_col}5"  # 지정이면 비워야 하는 샵 2~
+    for r, label in ((5, "샵 이름"), (6, "방식"), (7, "선택한 샵"), (8, "지출계획에 들어가는 샵"), (9, "샵당 피팅비")):
+        ws.cell(r, 2, label).font = F_BOLD
+    for i in range(DRESS_SHOPS):
+        style_input(ws.cell(5, 3 + i, shops[i] if i < len(shops) else None))  # 빈 열은 피팅비가 붙지 않음
+    style_input(ws.cell(6, 3, d.get("dress_mode") or "투어"))
+    style_input(ws["C7"])
+    style_input(ws.cell(9, 3, BENCH["dress_tour"]["fitting_fee"]), WON)
+    validation(ws, "투어,지정", "C6")
+    dv = DataValidation(type="list", formula1=f"$C$5:${last_col}$5", allow_blank=True)
+    ws.add_data_validation(dv)
+    dv.add("C7")
+    dv = DataValidation(type="custom", formula1='$C$6<>"지정"', allow_blank=True, showErrorMessage=True,
+                        errorTitle="지정은 샵 1곳", error="지정이면 샵 1에만 적습니다. 투어로 바꾸면 샵을 더 적을 수 있습니다.")
+    ws.add_data_validation(dv)
+    dv.add(others)
+    # 지정이면 샵 1만 지출계획에 들어간다
+    ws["C8"] = (f'=IF(C7="","",IF(ISNA(MATCH(C7,$C$5:${last_col}$5,0)),"",'
+                'IF(AND(C6="지정",C7<>C5),"",C7)))')
+    ws["C8"].font = F_BOLD
+    plan = wb["지출계획"]
+    prow = {plan[f"B{r}"].value: r for r in range(first, last + 1)}
+    ws["D6"] = f'=IF(AND(C6="지정",COUNTIF({others},"?*")>0),"지정은 샵 1곳만 적습니다. 샵 2·3 이름을 지우세요","")'
+    ws["D7"] = (f'=IF(C7="","",IF(C8="","선택한 샵이 목록에 없거나, 지정인데 샵 1이 아닙니다. 다시 고르세요",'
+                f'IF(지출계획!G{prow["스드메 패키지"]}>0,"스드메 패키지에도 금액이 있습니다. 중복이 아닌지 확인하세요","")))')
+    ws["D6"].font = ws["D7"].font = F_NOTE
+
+    links, cost_rows, fit = {}, [], None
+    costs = list(enumerate(BENCH["dress_tour"]["costs"], 10))
+    for r, c in costs:
+        ws.cell(r, 1, "비용")
+        ws.cell(r, 2, c["label"])
+        for i in range(DRESS_SHOPS):
+            x = chr(ord("C") + i)
+            if c.get("fitting"):  # 투어일 때 이름 있는 샵만 피팅비
+                ws[f"{x}{r}"] = f'=IF(OR({x}$5="",$C$6="지정"),0,$C$9)'
+            style_input(ws[f"{x}{r}"], WON)
+        cost_rows.append((r, c.get("minus")))
+        if c.get("fitting"):
+            fit = r
+        else:
+            links.setdefault(c["link"], {"D": [], "E": []})["E" if c.get("minus") else "D"].append(r)
+    tot, bur, ref, ratio, cheap = r + 1, r + 2, r + 3, r + 4, r + 5
+    base = next(r for r, c in costs if c["link"] == "드레스(단품)")
+    fits = f"$C${fit}:${last_col}${fit}"
+    for i in range(DRESS_SHOPS):
+        x = chr(ord("C") + i)
+        plus = "+".join(f"{x}{r}" for r, m in cost_rows if not m)
+        minus = "".join(f"-{x}{r}" for r, m in cost_rows if m)
+        # 드레스 기본가를 적은 샵만 총액을 낸다. 피팅비·혜택만 적힌 샵이 '최저'로 뽑히지 않게. 지정이면 샵 1만
+        skip = f'{x}$5="",N({x}{base})=0' + (',$C$6="지정"' if i else "")
+        ws[f"{x}{tot}"] = f'=IF(OR({skip}),"",{plus}{minus})'
+        # 투어는 투어한 샵 피팅비를 모두 낸다. 지정이면 피팅비가 전부 0
+        ws[f"{x}{bur}"] = f'=IF({x}{tot}="","",{x}{tot}-N({x}{fit})+SUM({fits}))'
+        ws[f"{x}{ratio}"] = f'=IF(OR(N({x}{base})=0,N($C${ref})=0),"",{x}{base}/$C${ref})'
+        for r in (tot, bur):
+            ws[f"{x}{r}"].number_format = WON
+        ws[f"{x}{ratio}"].number_format = '0.00"배"'
+    ws[f"C{ref}"] = f'=지출계획!Q{prow["드레스(단품)"]}'
+    ws[f"C{ref}"].number_format = WON
+    burs = f"C{bur}:{last_col}{bur}"
+    ws[f"C{cheap}"] = (f'=IF(COUNT({burs})=0,"",INDEX($C$5:${last_col}$5,MATCH(MIN({burs}),{burs},0)))')
+    for r, label in ((tot, "샵 총액"), (bur, "이 샵으로 정할 때 총부담"), (ref, "지역 기준값(드레스 단품)"),
+                     (ratio, "기준 대비(드레스 기본가)"), (cheap, "총부담 최저")):
+        ws.cell(r, 1, "합계")
+        ws.cell(r, 2, label).font = F_BOLD
+        for col in range(3, 3 + DRESS_SHOPS):
+            ws.cell(r, col).font = F_BOLD
+
+    # 선택한 샵 금액을 지출계획 견적(D)·할인(E)에 연동. input 에 견적·할인을 직접 준 항목은 그 값이 우선
+    sel, names = "드레스투어!$C$8", f"드레스투어!$C$5:${last_col}$5"
+    pick = lambda r: f"INDEX(드레스투어!$C${r}:${last_col}${r},MATCH({sel},{names},0))"
+    items = d.get("items") or {}
+    for name, cols in links.items():
+        if {"quote", "discount"} & set(items.get(name, {})):
+            continue
+        for col, rs in cols.items():
+            if rs:
+                e = "+".join(pick(r) for r in rs)
+                typed = ",".join(f"ISNUMBER({pick(r)})" for r in rs)  # 0원(포함)도 입력으로 본다
+                plan[f"{col}{prow[name]}"] = f'=IF({sel}="","",IFERROR(IF(OR({typed}),{e},""),""))'
+    name = "드레스 투어 피팅비"
+    if not {"quote", "discount"} & set(items.get(name, {})):
+        # 선택과 상관없이 투어한 샵 피팅비 합계(지정이면 0). 이름 있는 샵이 없으면 예산으로
+        plan[f"D{prow[name]}"] = f'=IF(COUNTIF({names},"?*")=0,"",SUM(드레스투어!{fits}))'
+
+    r = cheap + 2
+    ws.cell(r, 1, "특징").font = F_SECTION
+    for g in BENCH["dress_tour"]["checks"]:
+        for item in g["items"]:
+            r += 1
+            ws.cell(r, 1, g["group"])
+            ws.cell(r, 2, item)
+            for i in range(DRESS_SHOPS):
+                style_input(ws.cell(r, 3 + i))
+    r += 2
+    ws.cell(r, 1, "점수표").font = F_SECTION
+    header(ws, r + 1, ["평가 기준", "가중치(1~5)"] + [f"샵 {i} 점수" for i in range(1, DRESS_SHOPS + 1)])
+    sfirst = r + 2
+    for k, label in enumerate(BENCH["dress_tour"]["scores"]):
+        ws.cell(sfirst + k, 1, label)
+        for col in range(2, 3 + DRESS_SHOPS):
+            style_input(ws.cell(sfirst + k, col))
+    send = sfirst + len(BENCH["dress_tour"]["scores"]) - 1
+    stot = send + 1
+    ws.cell(stot, 1, "가중 총점").font = F_BOLD
+    for i in range(DRESS_SHOPS):
+        x = chr(ord("C") + i)
+        ws[f"{x}{stot}"] = f"=SUMPRODUCT($B${sfirst}:$B${send},{x}{sfirst}:{x}{send})"
+        ws[f"{x}{stot}"].font = F_BOLD
+    ws.cell(stot + 1, 1, "1위").font = F_BOLD
+    rng = f"C{stot}:{last_col}{stot}"
+    ws.cell(stot + 1, 3, f'=IF(MAX({rng})=0,"",INDEX($C$5:${last_col}$5,MATCH(MAX({rng}),{rng},0)))')
+    for i in range(DRESS_SHOPS):
+        ws.column_dimensions[chr(ord("C") + i)].width = 24  # 투어 메모를 적을 자리
+    ws.freeze_panes = "C5"
 
 
 def build_payments(wb, d, first, last):
@@ -539,6 +670,17 @@ def build(d):
     d["wedding_date"] = parse_date(d["wedding_date"], "wedding_date")
     num(d["meal_price"], "meal_price")
     num(d["guaranteed_guests"], "guaranteed_guests")
+    shops = d.get("dress_shops") or []
+    if not isinstance(shops, list) or len(shops) > DRESS_SHOPS or not all(isinstance(s, str) and s.strip() for s in shops):
+        die(f"dress_shops 는 샵 이름(문자열) 목록이고 최대 {DRESS_SHOPS}곳입니다: {shops!r}")
+    if any(s.startswith("=") or any(ch in s for ch in "*?~") for s in shops):  # 수식으로 저장되거나 MATCH 와일드카드
+        die(f"dress_shops 이름은 = 로 시작하거나 *?~ 를 쓸 수 없습니다: {shops!r}")
+    if len(set(shops)) != len(shops):
+        die(f"dress_shops 이름이 겹칩니다: {shops!r}")
+    if d.get("dress_mode") not in (None, "투어", "지정"):
+        die(f"dress_mode 는 투어 또는 지정입니다: {d['dress_mode']!r}")
+    if d.get("dress_mode") == "지정" and len(shops) > 1:
+        die(f"dress_mode 가 지정이면 dress_shops 는 1곳만 넣습니다: {shops!r}")
 
     wb = Workbook()
     dash = wb.active
@@ -546,6 +688,7 @@ def build(d):
     funds_ref = build_info(wb, d)
     meal_ref, gift_ref = build_guests(wb, d)
     first, last = build_plan(wb, d, meal_ref)
+    build_dress_tour(wb, d, first, last)
     build_payments(wb, d, first, last)
     build_cashflow(wb, first, last, funds_ref)
     build_bench(wb)
