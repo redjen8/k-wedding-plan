@@ -30,8 +30,9 @@ THIN = Side(style="thin", color="C9D1E0")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 FILL_INPUT = PatternFill("solid", fgColor="FFF2CC")
 FILL_HEAD = PatternFill("solid", fgColor="D9E1F2")
-FILL_RED = PatternFill("solid", fgColor="F8CBAD")
-FILL_GREEN = PatternFill("solid", fgColor="C6EFCE")
+# 조건부서식 색. Excel은 조건부서식 배경을 bgColor 로 읽어서 두 값을 모두 준다
+FILL_RED = PatternFill("solid", fgColor="F8CBAD", bgColor="F8CBAD")
+FILL_GREEN = PatternFill("solid", fgColor="C6EFCE", bgColor="C6EFCE")
 WON = "#,##0"
 WRAP = Alignment(wrap_text=True, vertical="top")
 
@@ -520,14 +521,12 @@ def polish(wb, max_width=42):
                 if not ws.row_dimensions[c.row].height:
                     ws.row_dimensions[c.row].height = 22  # 기본 행 높이를 무시하는 앱이 있어 직접 지정
         for col, w in widths.items():
-            preset = col in ws.column_dimensions  # 코드에서 직접 너비를 정한 열만 이미 존재한다
-            cd = ws.column_dimensions[col]
-            if not cd.hidden:  # 직접 정한 너비가 있으면 그보다 좁히지 않음
-                cd.width = max(w + 3, 8, cd.width if preset else 0)
+            if col not in ws.column_dimensions:  # 코드에서 너비를 직접 정한 열(이미 존재)은 그대로 둔다
+                ws.column_dimensions[col].width = max(w + 3, 8)
         for ref, w in wrapped.items():
             c = ws[ref]
             c.alignment = Alignment(horizontal=c.alignment.horizontal, vertical="center", wrap_text=True)
-            lines = -(-w // (max_width - 2))
+            lines = -(-w // max(ws.column_dimensions[c.column_letter].width - 2, 1))
             ws.row_dimensions[c.row].height = max(ws.row_dimensions[c.row].height or 20, 16 * lines + 6)
 
 

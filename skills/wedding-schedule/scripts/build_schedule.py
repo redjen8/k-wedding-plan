@@ -10,8 +10,9 @@ import sys
 from pathlib import Path
 
 from openpyxl import Workbook
-from openpyxl.formatting.rule import CellIsRule
+from openpyxl.formatting.rule import CellIsRule, FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 DATA = json.loads((Path(__file__).resolve().parent.parent / "references" / "checklists.json").read_text("utf-8"))
@@ -30,16 +31,21 @@ THIN = Side(style="thin", color="C9D1E0")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 FILL_INPUT = PatternFill("solid", fgColor="FFF2CC")
 FILL_HEAD = PatternFill("solid", fgColor="D9E1F2")
-FILL_RED = PatternFill("solid", fgColor="F8CBAD")
-FILL_ORANGE = PatternFill("solid", fgColor="FCE4D6")
-FILL_YELLOW = PatternFill("solid", fgColor="FFF9DB")
+# 조건부서식 색. Excel은 조건부서식 배경을 bgColor 로 읽어서 두 값을 모두 준다
+FILL_PINK = PatternFill("solid", fgColor="FDE2E4", bgColor="FDE2E4")  # 마감 임박·지연
+FILL_YELLOW = PatternFill("solid", fgColor="FFF9DB", bgColor="FFF9DB")  # 지금 할 때
 DATE = "yyyy-mm-dd"
 WRAP = Alignment(wrap_text=True, vertical="top")
 
 STATUSES = "예정,진행,완료,해당없음"
 OWNERS = "신랑,신부,공통,양가"
-COLS = ["단계", "할 일", "담당", "기준", "시작(D-)", "마감(D-)", "시작일", "마감일", "마감월", "상태", "남은 일수",
-        "알림", "놓치기 쉬움", "선택", "팁", "메모", "id"]
+COLS = ["단계", "할 일", "담당", "기준", "시작(D-)", "시작 시기", "마감(D-)", "마감 시기", "시작일", "마감일", "마감월",
+        "상태", "남은 일수", "알림", "놓치기 쉬움", "선택", "팁", "메모", "id"]
+C = {name: get_column_letter(i) for i, name in enumerate(COLS, 1)}  # 타임라인 열 이름 → 열 문자
+# 타임라인 열 너비. Excel에서 직접 맞춰 본 값이라 polish()가 바꾸지 않는다
+TIMELINE_WIDTHS = {"단계": 16.83, "할 일": 42, "담당": 10.66, "기준": 10.66, "시작(D-)": 14.16, "시작 시기": 15,
+                   "마감(D-)": 14.16, "마감 시기": 15, "시작일": 12.5, "마감일": 12.5, "마감월": 12.5, "상태": 10.66,
+                   "남은 일수": 15, "알림": 10.66, "놓치기 쉬움": 16.83, "선택": 10.66, "팁": 54.66, "메모": 10.66}
 FIRST = 6  # 타임라인 첫 데이터 행
 
 
@@ -106,12 +112,21 @@ def build_info(wb, d):
     validation(ws, "확정,추정", "C6:C7")
 
 
+def when_text(ref):
+    """D- 일수 셀 → '1년 6개월 전' 같은 읽기용 문구 수식. 30일 미만은 일 단위, 그 이상은 30.4일을 1개월로 반올림."""
+    m = f"ROUND(ABS({ref})/30.4,0)"
+    ym = (f'IF({m}>=12,INT({m}/12)&"년"&IF(MOD({m},12)>0," ",""),"")'
+          f'&IF(MOD({m},12)>0,MOD({m},12)&"개월","")')
+    return f'=IF({ref}=0,"당일",IF(ABS({ref})<30,ABS({ref})&"일",{ym})&IF({ref}>0," 전"," 후"))'
+
+
 def build_timeline(wb, d):
     ws = wb.create_sheet("타임라인")
     title(ws, "준비 타임라인",
-          "기준일에서 시작(D-)·마감(D-) 일수를 빼서 날짜를 계산합니다. 음수는 기준일 이후입니다. "
+          "시작(D-)·마감(D-)에 기준일 며칠 전인지 숫자로 넣으면 '시기'와 날짜가 계산됩니다. 음수는 기준일 이후입니다. "
           "D- 일수와 상태는 직접 고칠 수 있습니다. 순서가 바뀌면 마감일 열로 정렬하세요.")
-    ws["A3"] = "알림: 지연 = 마감 지남 / 마감 임박 / 지금 할 때 = 시작일이 지남 / 예정. ★ = 놓치기 쉬운 일"
+    ws["A3"] = ("알림: 지연 = 마감 지남 / 마감 임박 / 지금 할 때 = 시작일이 지남 / 예정. "
+                "분홍 = 마감 임박·지연, 노랑 = 지금 할 때. ★ = 놓치기 쉬운 일")
     ws["A3"].font = F_NOTE
     header(ws, 5, COLS)
 
@@ -119,61 +134,65 @@ def build_timeline(wb, d):
     base = {"wedding": d["wedding_date"], "shoot": shoot}
     rows = sorted(TASKS, key=lambda t: (base[t["anchor"]] - dt.timedelta(days=t["due"]),
                                         base[t["anchor"]] - dt.timedelta(days=t["start"])))
+    s, e, ds, de, st = C["시작(D-)"], C["마감(D-)"], C["시작일"], C["마감일"], C["상태"]
+    left, alert = C["남은 일수"], C["알림"]
     for r, t in enumerate(rows, FIRST):
         skipped = t["id"] in d["skip_ids"] or set(t.get("tags", [])) & d["skip_tags"]
-        status = "완료" if t["id"] in d["done"] else ("해당없음" if skipped else "예정")
-        anchor = "촬영일" if t["anchor"] == "shoot" else "예식일"
-        values = [t["phase"], t["title"], t["owner"], anchor, t["start"], t["due"]]
-        for i, v in enumerate(values, 1):
-            ws.cell(r, i, v).font = F_BASE
-        for col in "CEFJ":
-            style_input(ws[f"{col}{r}"])
-        ws[f"J{r}"] = status
-        base_ref = f'IF($D{r}="촬영일",기본정보!$B$7,기본정보!$B$6)'
-        ws[f"G{r}"] = f"={base_ref}-E{r}"
-        ws[f"H{r}"] = f"={base_ref}-F{r}"
-        ws[f"I{r}"] = f"=DATE(YEAR(H{r}),MONTH(H{r}),1)"
-        ws[f"K{r}"] = f'=IF(OR(J{r}="완료",J{r}="해당없음"),"",H{r}-TODAY())'
-        ws[f"L{r}"] = (f'=IF(K{r}="","",IF(K{r}<0,"지연",IF(K{r}<=기본정보!$B$8,"마감 임박",'
-                       f'IF(TODAY()>=G{r},"지금 할 때","예정"))))')
-        ws[f"M{r}"] = "★" if t.get("hidden") else ""
-        ws[f"N{r}"] = "선택" if t.get("optional") else ""
-        ws[f"O{r}"] = t.get("tip", "")
-        ws[f"Q{r}"] = t["id"]
-        for col in "GH":
-            ws[f"{col}{r}"].number_format = DATE
-        ws[f"I{r}"].number_format = "yyyy-mm"
-        ws[f"K{r}"].number_format = '0"일";-0"일"'
-        for col in "GHIKLMNOPQ":
-            ws[f"{col}{r}"].font = F_BASE
-        ws[f"O{r}"].alignment = WRAP
-        style_input(ws[f"P{r}"])
+        values = {
+            "단계": t["phase"], "할 일": t["title"], "담당": t["owner"],
+            "기준": "촬영일" if t["anchor"] == "shoot" else "예식일",
+            "시작(D-)": t["start"], "마감(D-)": t["due"],
+            "상태": "완료" if t["id"] in d["done"] else ("해당없음" if skipped else "예정"),
+            "시작 시기": when_text(f"{s}{r}"), "마감 시기": when_text(f"{e}{r}"),
+            "놓치기 쉬움": "★" if t.get("hidden") else "", "선택": "선택" if t.get("optional") else "",
+            "팁": t.get("tip", ""), "id": t["id"],
+        }
+        base_ref = f'IF(${C["기준"]}{r}="촬영일",기본정보!$B$7,기본정보!$B$6)'
+        values["시작일"] = f"={base_ref}-{s}{r}"
+        values["마감일"] = f"={base_ref}-{e}{r}"
+        values["마감월"] = f"=DATE(YEAR({de}{r}),MONTH({de}{r}),1)"
+        values["남은 일수"] = f'=IF(OR({st}{r}="완료",{st}{r}="해당없음"),"",{de}{r}-TODAY())'
+        values["알림"] = (f'=IF({left}{r}="","",IF({left}{r}<0,"지연",IF({left}{r}<=기본정보!$B$8,"마감 임박",'
+                         f'IF(TODAY()>={ds}{r},"지금 할 때","예정"))))')
+        for name, v in values.items():
+            ws[f"{C[name]}{r}"] = v
+            ws[f"{C[name]}{r}"].font = F_BASE
+        for name in ("담당", "상태", "메모"):
+            style_input(ws[f"{C[name]}{r}"])
+        ws[f"{s}{r}"].font = ws[f"{e}{r}"].font = F_INPUT  # 입력 칸이지만 배경은 알림 색으로 쓴다
+        ws[f"{ds}{r}"].number_format = ws[f"{de}{r}"].number_format = DATE
+        ws[f"{C['마감월']}{r}"].number_format = "yyyy-mm"
+        ws[f"{left}{r}"].number_format = '0"일";-0"일"'
     last = FIRST + len(rows) - 1
 
-    validation(ws, STATUSES, f"J{FIRST}:J{last}")
-    validation(ws, OWNERS, f"C{FIRST}:C{last}")
-    validation(ws, "예식일,촬영일", f"D{FIRST}:D{last}")
-    rng = f"L{FIRST}:L{last}"
-    for text, fill in (("지연", FILL_RED), ("마감 임박", FILL_ORANGE), ("지금 할 때", FILL_YELLOW)):
-        ws.conditional_formatting.add(rng, CellIsRule(operator="equal", formula=[f'"{text}"'], fill=fill))
-    ws.auto_filter.ref = f"A5:Q{last}"
+    validation(ws, STATUSES, f"{st}{FIRST}:{st}{last}")
+    validation(ws, OWNERS, f"{C['담당']}{FIRST}:{C['담당']}{last}")
+    validation(ws, "예식일,촬영일", f"{C['기준']}{FIRST}:{C['기준']}{last}")
+    rng = f"{alert}{FIRST}:{alert}{last}"
+    # 알림 열과 시작(D-)·마감(D-) 칸: 지금 할 때 = 옅은 노랑, 마감 임박·지연 = 옅은 분홍
+    a1 = f"${alert}{FIRST}"
+    for target in (rng, f"{s}{FIRST}:{s}{last}", f"{e}{FIRST}:{e}{last}"):
+        ws.conditional_formatting.add(target, FormulaRule(formula=[f'OR({a1}="마감 임박",{a1}="지연")'], fill=FILL_PINK))
+        ws.conditional_formatting.add(target, FormulaRule(formula=[f'{a1}="지금 할 때"'], fill=FILL_YELLOW))
+    ws.auto_filter.ref = f"A5:{C['id']}{last}"
     ws.freeze_panes = f"C{FIRST}"
-    ws.column_dimensions["P"].width = 24  # 메모 칸은 비어 있어도 쓸 자리를 둔다
-    ws.column_dimensions["Q"].hidden = True
+    for name, w in TIMELINE_WIDTHS.items():
+        ws.column_dimensions[C[name]].width = w
+    ws.column_dimensions[C["id"]].hidden = True
     return last
 
 
 def build_overview(ws, last):
     title(ws, "결혼 준비 일정 개요", "시점은 업계 관행 기준이며 업체·계약마다 다릅니다. 계약서 날짜가 우선입니다.")
     t = "타임라인!"
-    a, j, l = (f"{t}${c}${FIRST}:${c}${last}" for c in "AJL")
+    a, j, l = (f"{t}${C[n]}${FIRST}:${C[n]}${last}" for n in ("단계", "상태", "알림"))
     rows = [
         ("신랑 · 신부", '=기본정보!B4&" · "&기본정보!B5', None),
         ("예식일", "=기본정보!B6", DATE),
         ("스튜디오 촬영일", "=기본정보!B7", DATE),
         ("오늘", "=TODAY()", DATE),
         ("D-day", "=B5-B7", '"D-"0;"D+"0;"D-day"'),
-        ("할 일 (해당없음 제외)", f'=COUNTA({t}$B${FIRST}:$B${last})-COUNTIF({j},"해당없음")', '0"개"'),
+        ("할 일 (해당없음 제외)", f'=COUNTA({t}${C["할 일"]}${FIRST}:${C["할 일"]}${last})-COUNTIF({j},"해당없음")', '0"개"'),
         ("완료", f'=COUNTIF({j},"완료")', '0"개"'),
         ("진행률", "=IF(B9=0,0,B10/B9)", "0%"),
         ("지연", f'=COUNTIF({l},"지연")', '0"개"'),
@@ -191,7 +210,7 @@ def build_overview(ws, last):
     ws["C12"] = '=IF(B12>0,"타임라인에서 알림 열을 \'지연\'으로 필터하세요","")'
     for ref in ("C5", "C6", "C12"):
         ws[ref].font = F_NOTE
-    ws.conditional_formatting.add("B12", CellIsRule(operator="greaterThan", formula=["0"], fill=FILL_RED))
+    ws.conditional_formatting.add("B12", CellIsRule(operator="greaterThan", formula=["0"], fill=FILL_PINK))
 
     ws["A17"] = "단계별 진행"
     ws["A17"].font = F_SECTION
@@ -326,14 +345,12 @@ def polish(wb, max_width=42):
                 if not ws.row_dimensions[c.row].height:
                     ws.row_dimensions[c.row].height = 22  # 기본 행 높이를 무시하는 앱이 있어 직접 지정
         for col, w in widths.items():
-            preset = col in ws.column_dimensions  # 코드에서 직접 너비를 정한 열만 이미 존재한다
-            cd = ws.column_dimensions[col]
-            if not cd.hidden:  # 직접 정한 너비가 있으면 그보다 좁히지 않음
-                cd.width = max(w + 3, 8, cd.width if preset else 0)
+            if col not in ws.column_dimensions:  # 코드에서 너비를 직접 정한 열(이미 존재)은 그대로 둔다
+                ws.column_dimensions[col].width = max(w + 3, 8)
         for ref, w in wrapped.items():
             c = ws[ref]
             c.alignment = Alignment(horizontal=c.alignment.horizontal, vertical="center", wrap_text=True)
-            lines = -(-w // (max_width - 2))
+            lines = -(-w // max(ws.column_dimensions[c.column_letter].width - 2, 1))
             ws.row_dimensions[c.row].height = max(ws.row_dimensions[c.row].height or 20, 16 * lines + 6)
 
 

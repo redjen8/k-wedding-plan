@@ -49,6 +49,15 @@ def check_formulas(wb):
                         assert name in sheets, (ws.title, c.coordinate, name)
 
 
+def check_cf_colors(wb):
+    """조건부서식 배경은 Excel이 bgColor 로 읽는다. fgColor 만 있으면 색이 안 보인다."""
+    for ws in wb:
+        for cf in ws.conditional_formatting:
+            for rule in cf.rules:
+                bg = rule.dxf.fill.bgColor.rgb if rule.dxf and rule.dxf.fill else None
+                assert bg and bg != "00000000", (ws.title, cf.sqref, rule.formula)
+
+
 def expect_bad(skill, cases, tmp):
     for i, case in enumerate(cases):
         r = build(skill, case, tmp / f"bad{i}.xlsx")
@@ -88,6 +97,7 @@ def test_budget(tmp):
     for ref in ("B6", "B7", "B9", "B13"):
         assert str(wb["대시보드"][ref].value).startswith("="), ref
     check_formulas(wb)
+    check_cf_colors(wb)
 
     base = sample(BUDGET)
     expect_bad(BUDGET, [dict(base, region="화성"), dict(base, wedding_date="2027/04/17"),
@@ -138,9 +148,13 @@ def test_budget(tmp):
 
 # ---------- wedding-schedule ----------
 
-def timeline_rows(wb):
+def timeline(wb):
+    """타임라인 시트의 (열 이름 → 열 문자, 할 일 id → 행)."""
     ws = wb["타임라인"]
-    return {ws[f"Q{r}"].value: r for r in range(6, ws.max_row + 1) if ws[f"Q{r}"].value}
+    cols = {c.value: c.column_letter for c in ws[5] if c.value}
+    idc = cols["id"]
+    rows = {ws[f"{idc}{r}"].value: r for r in range(6, ws.max_row + 1) if ws[f"{idc}{r}"].value}
+    return cols, rows
 
 
 def test_schedule(tmp):
@@ -157,16 +171,34 @@ def test_schedule(tmp):
     assert r.returncode == 0, r.stderr
     wb = openpyxl.load_workbook(out)
     assert wb.sheetnames == ["개요", "기본정보", "타임라인", "웨딩홀투어", "당일체크"], wb.sheetnames
-    rows = timeline_rows(wb)
+    col, rows = timeline(wb)
     assert len(rows) == len(ids)
     tl = wb["타임라인"]
-    for col in "GHKL":
-        assert str(tl[f"{col}6"].value).startswith("="), col
+    for name in ("시작 시기", "마감 시기", "시작일", "마감일", "남은 일수", "알림"):
+        assert str(tl[f"{col[name]}6"].value).startswith("="), name
     for ref in ("B8", "B9", "B12"):
         assert str(wb["개요"][ref].value).startswith("="), ref
-    assert tl[f"J{rows['hall_contract']}"].value == "완료"
-    assert tl[f"J{rows['couple_hanbok']}"].value == "해당없음"  # skip 태그 '폐백'
+    st, due = col["상태"], col["마감일"]
+    widths = {"단계": 16.83, "할 일": 42, "시작 시기": 15, "팁": 54.66, "메모": 10.66}  # Excel에서 맞춘 너비 유지
+    for name, w in widths.items():
+        assert tl.column_dimensions[col[name]].width == w, (name, tl.column_dimensions[col[name]].width)
+    assert tl.column_dimensions[col["id"]].hidden
+    assert tl[f"{st}{rows['hall_contract']}"].value == "완료"
+    assert tl[f"{st}{rows['couple_hanbok']}"].value == "해당없음"  # skip 태그 '폐백'
     check_formulas(wb)
+    check_cf_colors(wb)
+    # 시작(D-)·마감(D-) 칸은 고정 노랑 없이 알림에 따라 색이 바뀐다
+    s_col = col["시작(D-)"]
+    assert tl[f"{s_col}6"].fill.fill_type is None
+    assert any(str(cf.sqref).startswith(s_col) for cf in tl.conditional_formatting)
+    # 마감일 → 시작일 순으로 급한 일이 위, 가장 나중 일이 맨 아래
+    wd, sd = (dt.date.fromisoformat(sample(SCHEDULE)[k]) for k in ("wedding_date", "shoot_date"))
+    keys = []
+    for r in sorted(rows.values()):
+        b = sd if tl[f"{col['기준']}{r}"].value == "촬영일" else wd
+        keys.append((b - dt.timedelta(days=tl[f"{col['마감(D-)']}{r}"].value),
+                     b - dt.timedelta(days=tl[f"{col['시작(D-)']}{r}"].value)))
+    assert keys == sorted(keys), "타임라인이 마감일·시작일 순이 아님"
 
     base = sample(SCHEDULE)
     expect_bad(SCHEDULE, [dict(base, wedding_date="2027.04.17"), dict(base, skip=["없는태그"]),
@@ -183,17 +215,24 @@ def test_schedule(tmp):
     wedding = dt.date.fromisoformat(base["wedding_date"])
     shoot = dt.date.fromisoformat(base["shoot_date"])
     flight, tour = rows["flight"], rows["dress_tour"]
-    assert vals[f"타임라인!H{flight}"] == serial(wedding) - 180  # 예식 기준
-    assert vals[f"타임라인!H{tour}"] == serial(shoot) - 30  # 촬영 기준
-    assert vals[f"타임라인!L{rows['hall_contract']}"] == ""  # 완료면 알림 없음
+    assert vals[f"타임라인!{due}{flight}"] == serial(wedding) - 180  # 예식 기준
+    assert vals[f"타임라인!{due}{tour}"] == serial(shoot) - 30  # 촬영 기준
+    assert vals[f"타임라인!{col['알림']}{rows['hall_contract']}"] == ""  # 완료면 알림 없음
+    # D- 일수 → 읽기용 시기 문구
+    expect_when = {("first_greeting", "시작 시기"): "1년 6개월 전", ("first_greeting", "마감 시기"): "1년 4개월 전",
+                   ("snap_book", "마감 시기"): "1년 전", ("ring", "마감 시기"): "4개월 전",
+                   ("invite_mobile", "마감 시기"): "21일 전", ("shoot_day", "마감 시기"): "당일",
+                   ("photo_select", "시작 시기"): "14일 후", ("photo_select", "마감 시기"): "1개월 후"}
+    for (tid, name), text in expect_when.items():
+        assert vals[f"타임라인!{col[name]}{rows[tid]}"] == text, (tid, name, vals[f"타임라인!{col[name]}{rows[tid]}"])
 
     # 촬영일을 10일 미루면 촬영 기준만 10일 이동
     wb = openpyxl.load_workbook(out)
     wb["기본정보"]["B7"] = shoot + dt.timedelta(days=10)
     wb.save(tmp / "shift.xlsx")
     shifted = calc(tmp / "shift.xlsx")
-    assert shifted[f"타임라인!H{tour}"] == vals[f"타임라인!H{tour}"] + 10
-    assert shifted[f"타임라인!H{flight}"] == vals[f"타임라인!H{flight}"]
+    assert shifted[f"타임라인!{due}{tour}"] == vals[f"타임라인!{due}{tour}"] + 10
+    assert shifted[f"타임라인!{due}{flight}"] == vals[f"타임라인!{due}{flight}"]
 
     # 홀 투어 가중 총점과 1위 (이름 없는 홀이 이기면 '홀 N')
     wb = openpyxl.load_workbook(out)
@@ -215,10 +254,10 @@ def test_schedule(tmp):
     soon = {"wedding_date": (dt.date.today() + dt.timedelta(days=20)).isoformat()}
     r = build(SCHEDULE, soon, tmp / "soon.xlsx")
     assert r.returncode == 0, r.stderr
-    soon_rows = timeline_rows(openpyxl.load_workbook(tmp / "soon.xlsx"))
+    _, soon_rows = timeline(openpyxl.load_workbook(tmp / "soon.xlsx"))
     sv = calc(tmp / "soon.xlsx")
-    assert sv[f"타임라인!L{soon_rows['flight']}"] == "지연"
-    assert sv[f"타임라인!L{soon_rows['wedding_day']}"] in ("예정", "마감 임박")
+    assert sv[f"타임라인!{col['알림']}{soon_rows['flight']}"] == "지연"
+    assert sv[f"타임라인!{col['알림']}{soon_rows['wedding_day']}"] in ("예정", "마감 임박")
 
 
 # ---------- 공통 ----------
