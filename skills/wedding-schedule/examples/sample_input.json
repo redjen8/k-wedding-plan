@@ -1,0 +1,10 @@
+{
+  "groom": "김신랑",
+  "bride": "이신부",
+  "wedding_date": "2027-04-17",
+  "wedding_date_estimated": false,
+  "shoot_date": "2026-12-05",
+  "skip": ["폐백", "아이폰스냅", "상견례선물"],
+  "done": ["first_greeting", "wedding_style", "priorities", "budget_agree", "hall_walkin", "hall_tour", "hall_contract", "sdm_contract", "sanggyeonrye"],
+  "halls": ["A웨딩홀", "B컨벤션"]
+}

@@ -1,0 +1,111 @@
+{
+  "about": "start/due 는 기준일(anchor) 며칠 전. 음수면 며칠 후. anchor: wedding=예식일, shoot=스튜디오 촬영일. 시점은 업계 관행이며 업체마다 다르다.",
+  "sources": {
+    "체크리스트": "웨딩 컨설팅사 결혼준비 체크리스트(2026, 1년 6개월 역산 시나리오)",
+    "플래너 안내": "웨딩 플래너 스드메 일정 안내(2026)",
+    "업계 통상": "업계 가이드·업체 안내 종합. 공식 기준 없음"
+  },
+  "tasks": [
+    {"id": "first_greeting", "phase": "기초 합의", "title": "양가 부모님 첫인사", "owner": "공통", "anchor": "wedding", "start": 540, "due": 480, "source": "체크리스트", "tip": "첫인사 선물은 과일·꽃바구니처럼 무난한 것으로, 양가 비슷한 수준으로 맞추면 편합니다."},
+    {"id": "wedding_style", "phase": "기초 합의", "title": "예식 형태·지역·희망 시기 정하기", "owner": "공통", "anchor": "wedding", "start": 540, "due": 480, "source": "체크리스트", "tip": "호텔/웨딩홀/스몰/야외 중에서 고르고, 두 사람의 근무지·고향을 고려합니다. 희망하는 달, 요일, 시간대도 정합니다."},
+    {"id": "priorities", "phase": "기초 합의", "title": "우선순위 정하기 (예산·위치·식사·주차·분위기)", "owner": "공통", "anchor": "wedding", "start": 540, "due": 480, "source": "체크리스트", "tip": "웨딩홀투어 시트의 가중치에 그대로 넣으면 홀 비교 점수가 나옵니다."},
+    {"id": "budget_agree", "phase": "기초 합의", "title": "총예산과 분담 방식 합의", "owner": "공통", "anchor": "wedding", "start": 540, "due": 450, "source": "체크리스트", "tip": "양가 지원을 포함한 상한선과 항목별 배분을 먼저 정합니다. 자금 계획은 wedding-budget 스킬로 만들 수 있습니다."},
+    {"id": "joint_account", "phase": "기초 합의", "title": "결혼 준비용 통장·카드 준비", "owner": "공통", "anchor": "wedding", "start": 510, "due": 450, "source": "체크리스트", "tip": "웨딩홀 계약금을 투어 당일 결제하는 경우가 많아 카드를 미리 준비해 두면 좋습니다."},
+
+    {"id": "hall_walkin", "phase": "예식장·플래너", "title": "관심 웨딩홀 미리 둘러보기", "owner": "공통", "anchor": "wedding", "start": 540, "due": 480, "source": "체크리스트", "tip": "다른 커플 예식일에 예약 없이 둘러보며 후보를 추리는 방법을 많이 씁니다."},
+    {"id": "hall_tour", "phase": "예식장·플래너", "title": "웨딩홀 투어 예약·방문", "owner": "공통", "anchor": "wedding", "start": 510, "due": 450, "source": "체크리스트", "tip": "웨딩홀투어 시트로 비교하세요. 당일 계약 혜택이 있어 하루에 몰아서 보는 경우가 많습니다."},
+    {"id": "hall_contract", "phase": "예식장·플래너", "title": "웨딩홀 계약", "owner": "공통", "anchor": "wedding", "start": 480, "due": 420, "hidden": true, "source": "업계 통상", "tip": "계약서에서 계약금 무료 취소 기간, 보증인원 변경 마감, 식대 인상 조건을 꼭 확인하세요. 계약금은 보통 총액의 10% 안팎입니다."},
+    {"id": "planner", "phase": "예식장·플래너", "title": "플래너 선택 (동행/비동행)", "owner": "공통", "anchor": "wedding", "start": 480, "due": 420, "optional": true, "tags": ["플래너"], "source": "체크리스트", "tip": "동행 플래너는 일정에 함께 가며 고르는 걸 돕고, 비동행은 더 저렴합니다. 제휴 업체 밖에서 따로 예약하면 할인을 못 받을 수 있으니 먼저 물어보세요."},
+    {"id": "sdm_contract", "phase": "예식장·플래너", "title": "스튜디오·드레스·메이크업 계약", "owner": "신부", "anchor": "wedding", "start": 480, "due": 420, "source": "플래너 안내", "tip": "스튜디오부터 정하는 경우가 많고, 인기 스튜디오는 빨리 마감됩니다. 계약금은 보통 총액의 10%입니다."},
+    {"id": "sdm_date", "phase": "예식장·플래너", "title": "스드메에 예식일 전달·촬영일 잡기", "owner": "신부", "anchor": "wedding", "start": 420, "due": 390, "source": "체크리스트", "tip": "촬영일이 정해지면 기본정보 시트에 넣으세요. 촬영 기준 일정이 모두 다시 계산됩니다."},
+
+    {"id": "snap_book", "phase": "본식 업체", "title": "본식스냅 예약", "owner": "공통", "anchor": "wedding", "start": 420, "due": 365, "hidden": true, "source": "체크리스트", "tip": "웨딩홀이 정해지면 바로 예약하는 게 좋습니다. 원판(단체사진)과 이어지는 사실상 필수 항목입니다. 작가 추가, 수정·셀렉비, 출장비는 따로인지 확인하세요."},
+    {"id": "video_book", "phase": "본식 업체", "title": "본식영상 예약", "owner": "공통", "anchor": "wedding", "start": 420, "due": 330, "source": "체크리스트", "tip": "촬영 인원과 카메라 수, 하이라이트·풀영상 포함 여부로 가격이 달라집니다."},
+    {"id": "iphone_snap", "phase": "본식 업체", "title": "아이폰스냅 예약", "owner": "공통", "anchor": "wedding", "start": 420, "due": 300, "optional": true, "tags": ["아이폰스냅"], "source": "체크리스트", "tip": "당일 사진을 바로 받을 수 있는 게 장점입니다. 서브 스냅 대신 많이 고릅니다."},
+    {"id": "mc_book", "phase": "본식 업체", "title": "사회자·주례 정하기", "owner": "공통", "anchor": "wedding", "start": 365, "due": 120, "source": "체크리스트", "tip": "홀 연계 전문 사회자가 있는지 먼저 확인하세요. 주례 없는 예식이면 전문 사회자를 많이 씁니다."},
+
+    {"id": "sanggyeonrye", "phase": "상견례", "title": "상견례 장소·인원 확정", "owner": "양가", "anchor": "wedding", "start": 480, "due": 365, "source": "체크리스트", "tip": "양가 거주지가 다르면 어디로 맞출지 먼저 협의합니다. 식장이 한쪽에 가까우면 상견례는 반대쪽에서 하는 경우가 많습니다."},
+    {"id": "sanggyeonrye_gift", "phase": "상견례", "title": "상견례 자료·양가 선물", "owner": "공통", "anchor": "wedding", "start": 400, "due": 365, "optional": true, "tags": ["상견례선물"], "source": "체크리스트", "tip": "필수는 아닙니다. 어색한 시간을 풀어 주는 용도로 준비하는 커플이 있습니다."},
+
+    {"id": "honeymoon_dest", "phase": "신혼여행", "title": "신혼여행지·일정 정하기", "owner": "공통", "anchor": "wedding", "start": 365, "due": 240, "source": "체크리스트", "tip": "휴양/관광/둘 다 중에서 고르고 휴가 일수를 확인합니다."},
+    {"id": "flight", "phase": "신혼여행", "title": "항공권 예약", "owner": "공통", "anchor": "wedding", "start": 300, "due": 180, "hidden": true, "source": "체크리스트", "tip": "최소 6개월 전 예약이 권장됩니다. 마일리지·라운지 혜택 카드는 미리 만들어 두세요."},
+    {"id": "hotel", "phase": "신혼여행", "title": "숙소 예약", "owner": "공통", "anchor": "wedding", "start": 300, "due": 150, "source": "체크리스트"},
+
+    {"id": "ring", "phase": "예물·예복·한복", "title": "웨딩밴드 투어·계약", "owner": "공통", "anchor": "wedding", "start": 300, "due": 120, "source": "업계 통상", "tip": "주문 후 제작은 수일~2주이고 각인하면 더 걸립니다. 매장 투어 당일 계약 혜택이 많습니다."},
+    {"id": "ring_pickup", "phase": "예물·예복·한복", "title": "웨딩밴드 수령·사이즈 확인", "owner": "공통", "anchor": "wedding", "start": 45, "due": 21, "source": "업계 통상"},
+    {"id": "groom_suit", "phase": "예물·예복·한복", "title": "신랑 예복 상담·맞춤", "owner": "신랑", "anchor": "shoot", "start": 90, "due": 45, "source": "체크리스트", "tip": "촬영 2~3개월 전에 방문합니다. 맞춤 제작은 4~6주 걸립니다. 촬영용은 대여, 본식용은 맞춤으로 하는 경우가 많습니다."},
+    {"id": "parents_hanbok", "phase": "예물·예복·한복", "title": "혼주 한복 예약·선택", "owner": "양가", "anchor": "wedding", "start": 120, "due": 45, "source": "체크리스트", "tip": "미리 예약해 두고 예식 1~2개월 전에 방문해 고르는 방식이 흔합니다."},
+    {"id": "couple_hanbok", "phase": "예물·예복·한복", "title": "신랑신부 한복 준비", "owner": "공통", "anchor": "wedding", "start": 120, "due": 45, "optional": true, "tags": ["폐백"], "source": "체크리스트", "tip": "폐백을 하면 필요합니다. 대여도 많이 합니다."},
+    {"id": "parents_suit", "phase": "예물·예복·한복", "title": "혼주 정장 준비", "owner": "양가", "anchor": "wedding", "start": 90, "due": 30, "source": "체크리스트"},
+    {"id": "parents_makeup", "phase": "예물·예복·한복", "title": "혼주 헤어메이크업 예약", "owner": "양가", "anchor": "wedding", "start": 120, "due": 60, "hidden": true, "source": "체크리스트", "tip": "형제자매까지 할지 정하세요. 홀 연계 샵이 동선상 편합니다."},
+
+    {"id": "dress_tour", "phase": "촬영 준비", "title": "드레스 투어", "owner": "신부", "anchor": "shoot", "start": 45, "due": 30, "hidden": true, "source": "플래너 안내", "tip": "샵당 1시간, 4벌 정도 피팅합니다. 투어비는 샵당 5만~6만원이고, 투어 2주 전쯤부터 취소하면 위약금이 붙는 경우가 많습니다. 같이 갈 사람을 미리 섭외하세요."},
+    {"id": "image_consult", "phase": "촬영 준비", "title": "메이크업샵 이미지 상담", "owner": "공통", "anchor": "shoot", "start": 45, "due": 21, "source": "체크리스트", "tip": "요청해야 해 주는 경우가 많습니다. 염색 톤, 신랑 눈썹·머리 정리 정도를 상담합니다."},
+    {"id": "hair_change", "phase": "촬영 준비", "title": "촬영 헤어변형 예약", "owner": "신부", "anchor": "shoot", "start": 45, "due": 14, "hidden": true, "source": "체크리스트", "tip": "드레스와 배경이 바뀌는데 머리가 같으면 사진이 단조로워집니다. 원하는 스타일은 촬영 1주 전쯤 보내 둡니다."},
+    {"id": "fitting_shoot", "phase": "촬영 준비", "title": "촬영가봉", "owner": "신부", "anchor": "shoot", "start": 21, "due": 7, "source": "플래너 안내", "tip": "5~6벌 피팅하고 3벌 정도 고릅니다. 한 달 전부터는 취소·변경 위약금이 있는 경우가 많습니다."},
+    {"id": "shoot_concept", "phase": "촬영 준비", "title": "촬영 시안·소품·의상 준비", "owner": "공통", "anchor": "shoot", "start": 21, "due": 3, "source": "체크리스트", "tip": "원하는 배경·드레스·헤어·소품을 시안으로 뽑아 가면 시간 안에 찍기 쉽습니다. 신랑도 시안을 숙지하세요."},
+    {"id": "nail", "phase": "촬영 준비", "title": "웨딩 네일", "owner": "신부", "anchor": "shoot", "start": 7, "due": 1, "source": "체크리스트"},
+    {"id": "shoot_day", "phase": "촬영 준비", "title": "스튜디오 촬영", "owner": "공통", "anchor": "shoot", "start": 0, "due": 0, "source": "플래너 안내", "tip": "보통 4시간 안팎입니다. 신부가 옷을 갈아입는 동안 신랑이 시안을 챙기면 빠뜨리는 장면이 줄어듭니다."},
+    {"id": "photo_select", "phase": "촬영 준비", "title": "사진 셀렉·원본 수령", "owner": "공통", "anchor": "shoot", "start": -14, "due": -45, "hidden": true, "source": "체크리스트", "tip": "앨범 페이지 추가, 액자 업그레이드, 수정본 추가금이 많이 붙는 날입니다. 미리 상한을 정해 가세요."},
+    {"id": "frame_pickup", "phase": "촬영 준비", "title": "스튜디오 액자 수령", "owner": "공통", "anchor": "wedding", "start": 21, "due": 7, "source": "체크리스트", "tip": "포토테이블에 쓰려면 예식 전에 받아야 합니다."},
+
+    {"id": "groom_laser", "phase": "관리", "title": "신랑 제모 시작", "owner": "신랑", "anchor": "wedding", "start": 365, "due": 300, "optional": true, "tags": ["관리"], "source": "체크리스트", "tip": "여러 번 받아야 효과가 나서 일찍 시작할수록 좋습니다."},
+    {"id": "skin", "phase": "관리", "title": "피부관리", "owner": "공통", "anchor": "wedding", "start": 300, "due": 30, "optional": true, "tags": ["관리"], "source": "체크리스트", "tip": "예식 한 달 전부터는 다운타임이 있는 무리한 시술을 피하세요."},
+    {"id": "diet", "phase": "관리", "title": "체중관리", "owner": "공통", "anchor": "wedding", "start": 300, "due": 60, "optional": true, "tags": ["관리"], "source": "체크리스트", "tip": "촬영과 가봉 일정에 맞춰 미리 시작합니다."},
+
+    {"id": "guest_list", "phase": "청첩장·하객", "title": "하객 명단 정리", "owner": "공통", "anchor": "wedding", "start": 150, "due": 90, "source": "체크리스트", "tip": "확실히 오는 사람 1, 애매한 사람 0.5, 안 올 사람 0으로 세면 보증인원 잡기가 쉽습니다. 인원은 wedding-budget의 하객식대 시트로 옮기면 식대가 계산됩니다."},
+    {"id": "invite_make", "phase": "청첩장·하객", "title": "청첩장 제작", "owner": "공통", "anchor": "wedding", "start": 90, "due": 60, "source": "체크리스트", "tip": "예식 2개월 전 제작이 흔합니다. 혼주용을 따로 뽑을지, 몇 부를 뽑을지 정하세요. 인쇄 후에는 수정이 안 됩니다."},
+    {"id": "invite_paper", "phase": "청첩장·하객", "title": "종이 청첩장 전달", "owner": "공통", "anchor": "wedding", "start": 60, "due": 30, "source": "체크리스트"},
+    {"id": "invite_mobile", "phase": "청첩장·하객", "title": "모바일 청첩장 발송", "owner": "공통", "anchor": "wedding", "start": 45, "due": 21, "source": "체크리스트", "tip": "혼주용 버전을 따로 만드는 경우도 있습니다."},
+    {"id": "invite_meetup", "phase": "청첩장·하객", "title": "청첩장 모임", "owner": "공통", "anchor": "wedding", "start": 75, "due": 30, "hidden": true, "source": "체크리스트", "tip": "주말에만 잡히는 경우가 많으니 예식 한 달 전까지 끝나도록 일정을 짜세요. 1인 3만~5만원으로 예산을 잡는 경우가 많습니다."},
+
+    {"id": "ceremony_order", "phase": "본식 구성", "title": "식순 정하기", "owner": "공통", "anchor": "wedding", "start": 90, "due": 45, "source": "체크리스트", "tip": "화촉점화, 입장 방식(동시/단독), 축사·축가 순서를 정합니다."},
+    {"id": "singer", "phase": "본식 구성", "title": "축가·축사·연주 섭외", "owner": "공통", "anchor": "wedding", "start": 90, "due": 45, "source": "체크리스트", "tip": "업체를 쓰면 지역 출장비가 붙을 수 있습니다."},
+    {"id": "reception_staff", "phase": "본식 구성", "title": "축의대·부케 받을 사람 섭외", "owner": "공통", "anchor": "wedding", "start": 60, "due": 21, "source": "체크리스트", "tip": "축의대는 가까운 친척이나 친구에게 많이 부탁합니다. 당일체크 시트에 담당자를 적어 두세요."},
+    {"id": "pre_video", "phase": "본식 구성", "title": "식전영상 준비", "owner": "공통", "anchor": "wedding", "start": 60, "due": 14, "optional": true, "tags": ["식전영상"], "source": "체크리스트"},
+    {"id": "bouquet", "phase": "본식 구성", "title": "부케 예약", "owner": "신부", "anchor": "wedding", "start": 30, "due": 14, "hidden": true, "source": "체크리스트", "tip": "최소 1달~2주 전에는 예약해야 합니다. 계절마다 가능한 꽃이 다르고, 배송비·코사지 추가금이 붙을 수 있습니다."},
+    {"id": "hall_flower", "phase": "본식 구성", "title": "꽃장식·데코 요청 전달", "owner": "공통", "anchor": "wedding", "start": 45, "due": 21, "source": "체크리스트"},
+    {"id": "tasting", "phase": "본식 구성", "title": "웨딩홀 시식", "owner": "공통", "anchor": "wedding", "start": 60, "due": 30, "source": "체크리스트", "tip": "기본 2인이고 추가할 수 있는 경우가 많습니다."},
+    {"id": "fitting_main", "phase": "본식 구성", "title": "본식가봉", "owner": "신부", "anchor": "wedding", "start": 30, "due": 21, "source": "플래너 안내", "tip": "예식 3주~1달 전에 잡습니다. 4벌 정도 피팅하고 1벌을 고릅니다."},
+    {"id": "second_dress", "phase": "본식 구성", "title": "2부 드레스 고르기", "owner": "신부", "anchor": "wedding", "start": 30, "due": 21, "optional": true, "tags": ["2부"], "source": "플래너 안내", "tip": "본식가봉 때 함께 고르는 경우가 많습니다."},
+    {"id": "guarantee_final", "phase": "본식 구성", "title": "보증인원 최종 확정", "owner": "공통", "anchor": "wedding", "start": 30, "due": 14, "hidden": true, "source": "업계 통상", "tip": "마감일은 계약서 기준입니다. 늘리는 건 대체로 되지만 줄이기는 어렵습니다."},
+    {"id": "suit_final", "phase": "본식 구성", "title": "본식 예복 최종 피팅", "owner": "신랑", "anchor": "wedding", "start": 21, "due": 7, "source": "업계 통상"},
+
+    {"id": "pay_sdm_mid", "phase": "결제", "title": "스드메 중도금", "owner": "공통", "anchor": "shoot", "start": 37, "due": 30, "hidden": true, "source": "플래너 안내", "tip": "보통 촬영 한 달 전입니다. 정확한 날짜는 계약서를 확인하세요."},
+    {"id": "pay_sdm_final", "phase": "결제", "title": "스드메 잔금", "owner": "공통", "anchor": "wedding", "start": 37, "due": 30, "hidden": true, "source": "플래너 안내", "tip": "보통 예식 한 달 전입니다."},
+    {"id": "cash_list", "phase": "결제", "title": "현장 현금 지급 대상 정리", "owner": "공통", "anchor": "wedding", "start": 14, "due": 7, "hidden": true, "source": "체크리스트", "tip": "헬퍼, 도우미, 사회·축가 사례, 수모 등. 당일체크 시트에 금액을 적으면 합계가 나옵니다."},
+    {"id": "pay_hall", "phase": "결제", "title": "웨딩홀 잔금 정산", "owner": "공통", "anchor": "wedding", "start": 0, "due": 0, "source": "플래너 안내", "tip": "예식 당일 정산하고, 축의금으로 내는 경우가 많습니다. 계약금은 빼고 계산합니다."},
+
+    {"id": "rehearsal", "phase": "마무리", "title": "식장 리허설", "owner": "공통", "anchor": "wedding", "start": 10, "due": 5, "source": "체크리스트", "tip": "평일에 빈 홀에서 해 볼 수 있는지 식장에 요청하세요."},
+    {"id": "cash_envelope", "phase": "마무리", "title": "현금 봉투 준비", "owner": "공통", "anchor": "wedding", "start": 7, "due": 1, "hidden": true, "source": "체크리스트"},
+    {"id": "hair_final", "phase": "마무리", "title": "염색·커트", "owner": "공통", "anchor": "wedding", "start": 10, "due": 3, "source": "체크리스트"},
+    {"id": "exchange", "phase": "마무리", "title": "환전·신혼여행 짐", "owner": "공통", "anchor": "wedding", "start": 7, "due": 2, "source": "체크리스트"},
+    {"id": "pickup", "phase": "마무리", "title": "예복·혼주 한복 픽업, 상태 확인", "owner": "양가", "anchor": "wedding", "start": 2, "due": 1, "source": "체크리스트"},
+    {"id": "order_memorize", "phase": "마무리", "title": "식순·동선 숙지", "owner": "신랑", "anchor": "wedding", "start": 3, "due": 1, "source": "체크리스트", "tip": "당일 신부는 움직이기 어려우니 신랑이 식순과 확인할 것을 챙기면 좋습니다."},
+    {"id": "wedding_day", "phase": "마무리", "title": "예식", "owner": "공통", "anchor": "wedding", "start": 0, "due": 0, "source": "체크리스트"},
+
+    {"id": "thanks", "phase": "예식 후", "title": "감사 인사·답례", "owner": "공통", "anchor": "wedding", "start": -7, "due": -30, "optional": true, "tags": ["예식후"], "source": "업계 통상"},
+    {"id": "video_receive", "phase": "예식 후", "title": "본식영상 수령 확인", "owner": "공통", "anchor": "wedding", "start": -80, "due": -100, "optional": true, "tags": ["예식후"], "source": "체크리스트", "tip": "보통 예식 후 3개월 정도 걸립니다."},
+    {"id": "album_receive", "phase": "예식 후", "title": "스냅·스튜디오 앨범 수령 확인", "owner": "공통", "anchor": "wedding", "start": -90, "due": -150, "optional": true, "tags": ["예식후"], "source": "체크리스트", "tip": "셀렉 후 3~4개월 걸립니다."},
+
+    {"id": "house_check", "phase": "신혼집", "title": "신혼집 입주 시점 점검", "owner": "공통", "anchor": "wedding", "start": 365, "due": 240, "optional": true, "tags": ["신혼집"], "source": "체크리스트", "tip": "계약·대출은 이 스킬 범위 밖입니다. 입주일과 예식·신혼여행 순서만 맞춰 보세요."},
+    {"id": "appliances", "phase": "신혼집", "title": "가전·가구 구매", "owner": "공통", "anchor": "wedding", "start": 180, "due": 60, "optional": true, "tags": ["신혼집"], "source": "체크리스트", "tip": "여러 개를 함께 사면 할인율이 올라가는 경우가 많아 필요한 목록을 먼저 정하세요."},
+    {"id": "move_in", "phase": "신혼집", "title": "입주 청소·이사", "owner": "공통", "anchor": "wedding", "start": 90, "due": 14, "optional": true, "tags": ["신혼집"], "source": "체크리스트"},
+    {"id": "internet", "phase": "신혼집", "title": "인터넷 설치", "owner": "공통", "anchor": "wedding", "start": 30, "due": 7, "optional": true, "tags": ["신혼집"], "source": "체크리스트"}
+  ],
+  "hall_tour": [
+    {"group": "하객 편의", "items": ["대중교통 접근성", "셔틀버스 유무·운행 간격", "주차 가능 대수·연계 주차장", "무료 주차 시간", "엘리베이터 수", "ATM 유무"]},
+    {"group": "홀", "items": ["단독홀 여부", "대관료와 포함 항목", "꽃장식 종류(생화/조화)·추가금", "플라워 샤워 비용", "예식 간격·시간", "보증인원", "좌석 수", "분위기(밝기·천고·버진로드 길이)", "조명·음향"]},
+    {"group": "로비", "items": ["로비 크기", "축의대 위치", "포토테이블 크기", "화환 반입 가능 여부"]},
+    {"group": "신부대기실", "items": ["홀과 연결 여부", "분위기", "전용 화장실"]},
+    {"group": "연회장", "items": ["홀과의 동선", "식대(성인/아동)", "주류·음료 포함 여부", "식사 형태(뷔페/코스/한상)·식사 시간", "식권 유무", "혼잡도", "스크린 유무", "당일 추가 가능 인원·단가"]},
+    {"group": "혼주", "items": ["연계 메이크업샵", "외부 메이크업 가능 여부", "메이크업·탈의 공간", "락커룸"]},
+    {"group": "계약 조건", "items": ["계약금 무료 취소 기간", "보증인원 변경 마감", "식대 인상 조건", "폐백실·2부 진행 비용", "현금영수증 가능 여부", "부가세 포함 여부", "시식 가능 인원", "당일 계약 혜택"]}
+  ],
+  "hall_scores": ["위치·교통", "식사", "주차", "분위기", "비용"],
+  "day_of": {
+    "items": ["신분증", "현금 봉투", "웨딩밴드", "부케·부토니에 배송 확인", "웨딩슈즈·속옷·액세서리(드레스샵 확인)", "2부 의상", "축의금 보관 가방", "식권", "휴대폰 충전기·보조배터리", "상비약·밴드", "물·간단한 간식", "여분 스타킹·셔츠", "신혼여행 짐(바로 출발 시)"],
+    "roles": ["축의대(신랑측)", "축의대(신부측)", "축의금 가방 보관", "부케 받을 사람", "혼주 안내·하객 응대", "원판 촬영 인원 정리", "짐·선물 정리", "주차 안내"],
+    "cash": ["드레스 헬퍼", "본식 도우미·수모", "사회자 사례", "축가 사례", "축사 사례", "주례 사례", "축의대 도와준 사람", "기타"]
+  }
+}
