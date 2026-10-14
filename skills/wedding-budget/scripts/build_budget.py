@@ -11,7 +11,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
 BENCH = json.loads((Path(__file__).resolve().parent.parent / "references" / "benchmarks.json").read_text("utf-8"))
@@ -19,11 +19,15 @@ REGIONS = BENCH["regions"]
 MAN = 10000  # 통계는 만원, 엑셀은 원
 
 FONT = "맑은 고딕"
-F_BASE = Font(name=FONT, size=10)
-F_INPUT = Font(name=FONT, size=10, color="0000FF")
-F_BOLD = Font(name=FONT, size=10, bold=True)
-F_TITLE = Font(name=FONT, size=14, bold=True)
-F_NOTE = Font(name=FONT, size=9, color="666666")
+BODY = 11  # 표 본문 글자 크기. polish()는 이 크기인 셀만 표로 본다
+F_BASE = Font(name=FONT, size=BODY)
+F_INPUT = Font(name=FONT, size=BODY, color="0000FF")
+F_BOLD = Font(name=FONT, size=BODY, bold=True)
+F_TITLE = Font(name=FONT, size=16, bold=True)
+F_SECTION = Font(name=FONT, size=12, bold=True, color="1F4E79")
+F_NOTE = Font(name=FONT, size=10, color="666666")
+THIN = Side(style="thin", color="C9D1E0")
+BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 FILL_INPUT = PatternFill("solid", fgColor="FFF2CC")
 FILL_HEAD = PatternFill("solid", fgColor="D9E1F2")
 FILL_RED = PatternFill("solid", fgColor="F8CBAD")
@@ -32,17 +36,24 @@ WON = "#,##0"
 WRAP = Alignment(wrap_text=True, vertical="top")
 
 GUEST_GROUPS = ["가족", "친구", "회사", "부모님 지인", "기타"]
-PAYERS = "신랑,신부,공통,신랑측 부모,신부측 부모"
-METHODS = "카드,계좌이체,현금"
+PAYERS = ["신랑", "신부", "공통", "신랑측 부모", "신부측 부모"]
+METHODS = ["카드", "계좌이체", "현금"]
+RECEIPTS = ["발급완료", "미발급", "해당없음"]
+PAY_TYPES = ["계약금", "중도금", "잔금", "현장 추가금", "기타"]
 STATUSES = "미정,상담,계약,완료"
 ITEM_FIELDS = {"budget", "quote", "discount", "deposit", "deposit_date", "middle", "middle_date",
-               "balance_date", "payer", "method", "status", "memo"}
+               "balance_date", "status", "memo"}
+PAYMENT_FIELDS = {"date", "item", "type", "amount", "payer", "method", "receipt", "memo"}
 
-# 지출계획 열
+# 지출계획 열. 계약금~잔금일은 '예정', 실제 결제는 결제기록 시트에 쌓고 N열(납부 완료)로 합산한다
 COLS = ["대분류", "항목", "내 예산", "견적", "할인", "확정액", "적용 금액", "계약금", "계약금일", "중도금", "중도금일",
-        "잔금", "잔금일", "결제자", "결제수단", "진행", "지역 기준값", "기준 대비", "판정", "놓치기 쉬움", "팁·메모", "기준키", "비교"]
-INPUT_COLS = "CDEHIJKMNOP"
+        "잔금", "잔금일", "납부 완료", "남은 금액", "진행", "지역 기준값", "기준 대비", "판정", "놓치기 쉬움", "팁·메모", "기준키", "비교"]
+INPUT_COLS = "CDEHIJKMP"
 FIRST = 6  # 지출계획 첫 데이터 행
+PAY_FIRST, PAY_ROWS = 6, 200  # 결제기록 입력 행
+PAY_LAST = PAY_FIRST + PAY_ROWS - 1
+PAY = "결제기록!"
+PAY_ITEM, PAY_AMT = f"{PAY}$B${PAY_FIRST}:$B${PAY_LAST}", f"{PAY}$D${PAY_FIRST}:$D${PAY_LAST}"
 
 
 def die(msg):
@@ -72,8 +83,8 @@ def style_input(c, fmt=None):
         c.number_format = fmt
 
 
-def header(ws, row, labels):
-    for i, label in enumerate(labels, 1):
+def header(ws, row, labels, col=1):
+    for i, label in enumerate(labels, col):
         c = ws.cell(row, i, label)
         c.font, c.fill, c.alignment = F_BOLD, FILL_HEAD, Alignment(horizontal="center", wrap_text=True)
 
@@ -112,7 +123,7 @@ def build_info(wb, d):
     for r in (8, 11, 12, 13):
         ws.cell(r, 3).font = F_NOTE
 
-    ws["A17"], ws["A17"].font = "예식 준비에 쓸 수 있는 돈 (신혼집 자금 제외)", F_BOLD
+    ws["A17"], ws["A17"].font = "예식 준비에 쓸 수 있는 돈 (신혼집 자금 제외)", F_SECTION
     header(ws, 18, ["자금원", "신랑", "신부", "합계"])
     funds = d.get("funds") or [{"name": n} for n in ["저축", "투자자산 현금화", "부모님 지원", "예식 전까지 추가 저축", "기타"]]
     r = 19
@@ -126,10 +137,6 @@ def build_info(wb, d):
     for col in "BCD":
         c = ws[f"{col}{r}"]
         c.value, c.number_format, c.font = f"=SUM({col}19:{col}{r - 1})", WON, F_BOLD
-    ws.column_dimensions["A"].width = 26
-    for col in "BCD":
-        ws.column_dimensions[col].width = 16
-    ws.column_dimensions["C"].width = 18
     return f"기본정보!$D${r}"  # 가용자금 합계
 
 
@@ -172,9 +179,6 @@ def build_guests(wb, d):
     ws["C20"] = "가족은 한 봉투로 오는 경우가 많습니다. 실제에 맞게 줄여서 입력하세요."
     for r in (18, 20):
         ws.cell(r, 3).font = F_NOTE
-    ws.column_dimensions["A"].width = 26
-    for col in "BCDEF":
-        ws.column_dimensions[col].width = 14
     return "하객식대!$B$17", "하객식대!$B$21"
 
 
@@ -182,7 +186,8 @@ def build_plan(wb, d, meal_ref):
     ws = wb.create_sheet("지출계획")
     ws["A1"], ws["A1"].font = "지출계획", F_TITLE
     ws["A2"] = ("노란 칸만 입력하세요. 견적을 넣으면 확정액이 생기고, 확정액이 없으면 내 예산으로 계산합니다. "
-                "계약금·중도금을 넣으면 잔금은 자동입니다. 날짜를 넣어야 월별자금에 잡힙니다.")
+                "계약금·중도금·잔금은 '예정'이고 날짜를 넣어야 월별자금에 잡힙니다. "
+                "실제로 낸 돈은 결제기록 시트에 적으면 '납부 완료'에 합산됩니다.")
     ws["A3"] = f"지역 기준값: 참가격 {BENCH['as_of']} 중간값(지역별) 또는 듀오 2026 평균(전국). ★ = 놓치기 쉬운 비용"
     for c in ("A2", "A3"):
         ws[c].font = F_NOTE
@@ -198,6 +203,9 @@ def build_plan(wb, d, meal_ref):
     for e in d.get("extra_items") or []:  # 추가 항목은 예비비 행 바로 앞에
         if not e.get("name"):
             die("extra_items 의 각 항목에는 name 이 필요합니다")
+        if e["name"] in known or any(ch in e["name"] for ch in "*?~"):  # 결제기록 SUMIFS 가 이름으로 합산
+            die(f"extra_items 이름은 기본 항목과 겹치지 않고 *?~ 를 쓰지 않아야 합니다: {e['name']!r}")
+        known.add(e["name"])
         rows.insert(reserve, {"category": e.get("category", "기타"), "name": e["name"], "values": None, "input": e})
         reserve += 1
 
@@ -228,7 +236,7 @@ def build_plan(wb, d, meal_ref):
                   "J": num(inp.get("middle"), f"{it['name']}.middle"),
                   "K": parse_date(inp.get("middle_date"), f"{it['name']}.middle_date"),
                   "M": parse_date(inp.get("balance_date"), f"{it['name']}.balance_date"),
-                  "N": inp.get("payer"), "O": inp.get("method"), "P": inp.get("status", "미정")}
+                  "P": inp.get("status", "미정")}
         for col in INPUT_COLS:
             c = ws[f"{col}{r}"]
             c.value = values.get(col)
@@ -236,6 +244,8 @@ def build_plan(wb, d, meal_ref):
         ws[f"F{r}"] = f'=IF(D{r}="","",MAX(D{r}-E{r},0))'
         ws[f"G{r}"] = f'=IF(F{r}<>"",F{r},IF(C{r}<>"",C{r},0))'
         ws[f"L{r}"] = f'=IF(G{r}=0,"",MAX(G{r}-H{r}-J{r},0))'
+        ws[f"N{r}"] = f"=SUMIFS({PAY_AMT},{PAY_ITEM},$B{r})"
+        ws[f"O{r}"] = f'=IF(G{r}=0,"",MAX(G{r}-N{r},0))'
         comparable = it.get("comparable", True)
         if it.get("values"):
             ws[f"Q{r}"] = (f"=INDEX(기준표!$C$7:$G$200,MATCH($V{r},기준표!$B$7:$B$200,0),"
@@ -252,34 +262,97 @@ def build_plan(wb, d, meal_ref):
         ws[f"U{r}"] = memo
         ws[f"V{r}"] = it["name"]
         ws[f"W{r}"] = "Y" if it.get("values") and comparable else "N"
-        for col in "ABFGLQRSTUVW":
+        for col in "ABFGLNOQRSTUVW":
             ws[f"{col}{r}"].font = F_BASE
-        for col in "FGLQ":
+        for col in "FGLNOQ":
             ws[f"{col}{r}"].number_format = WON
         ws[f"R{r}"].number_format = '0.00"배"'
 
     tot = last + 1
     ws.cell(tot, 1, "합계").font = F_BOLD
-    for col in "CDEFGHJL":
+    for col in "CDEFGHJLNO":
         c = ws[f"{col}{tot}"]
         c.value, c.number_format, c.font = f"=SUM({col}{FIRST}:{col}{last})", WON, F_BOLD
 
-    validation(ws, PAYERS, f"N{FIRST}:N{last}")
-    validation(ws, METHODS, f"O{FIRST}:O{last}")
     validation(ws, STATUSES, f"P{FIRST}:P{last}")
     s_rng = f"S{FIRST}:S{last}"
     ws.conditional_formatting.add(s_rng, CellIsRule(operator="equal", formula=['"높음"'], fill=FILL_RED))
     ws.conditional_formatting.add(s_rng, CellIsRule(operator="equal", formula=['"낮음"'], fill=FILL_GREEN))
     ws.conditional_formatting.add(f"A{FIRST}:B{last}",
                                   FormulaRule(formula=[f'AND($T{FIRST}="★",$G{FIRST}=0)'], fill=FILL_RED))
-    widths = [10, 22, 13, 13, 11, 13, 13, 12, 11, 12, 11, 12, 11, 10, 10, 8, 13, 9, 10, 8, 50]
-    for i, w in enumerate(widths, 1):
-        ws.column_dimensions[ws.cell(5, i).column_letter].width = w
     ws.column_dimensions["V"].hidden = ws.column_dimensions["W"].hidden = True
     ws.freeze_panes = f"C{FIRST}"
     ws["B4"] = "빨간 항목명 = 놓치기 쉬운 비용인데 아직 0원"
     ws["B4"].font = F_NOTE
     return FIRST, last
+
+
+def build_payments(wb, d, first, last):
+    ws = wb.create_sheet("결제기록")
+    ws["A1"], ws["A1"].font = "결제기록", F_TITLE
+    ws["A2"] = ("실제로 결제할 때마다 한 줄씩 적으세요. 항목은 지출계획의 항목명에서 고릅니다. "
+                "계좌이체·현금 결제는 현금영수증 발급 여부를 적어 두세요.")
+    ws["A2"].font = F_NOTE
+    header(ws, 5, ["날짜", "항목", "구분", "금액", "결제자", "결제수단", "현금영수증", "확인", "메모"])
+    names = {wb["지출계획"][f"B{r}"].value for r in range(first, last + 1)}
+    payments = d.get("payments") or []
+    if len(payments) > PAY_ROWS:
+        die(f"payments 는 최대 {PAY_ROWS}건입니다")
+    choices = {"type": PAY_TYPES, "payer": PAYERS, "method": METHODS, "receipt": RECEIPTS}
+    for r in range(PAY_FIRST, PAY_LAST + 1):
+        p = payments[r - PAY_FIRST] if r - PAY_FIRST < len(payments) else {}
+        bad = set(p) - PAYMENT_FIELDS
+        if bad:
+            die(f"payments 에 알 수 없는 필드 {sorted(bad)}")
+        if p and p.get("item") not in names:
+            die(f"payments.item 은 지출계획 항목명이어야 합니다: {p.get('item')!r}")
+        for k, allowed in choices.items():
+            if p.get(k) not in (None, "") and p[k] not in allowed:
+                die(f"payments.{k} 는 {allowed} 중 하나여야 합니다: {p[k]!r}")
+        row = [parse_date(p.get("date"), "payments.date"), p.get("item"), p.get("type"),
+               num(p.get("amount"), "payments.amount"), p.get("payer"), p.get("method"), p.get("receipt")]
+        for i, v in enumerate(row, 1):
+            style_input(ws.cell(r, i, v), "yyyy-mm-dd" if i == 1 else (WON if i == 4 else None))
+        style_input(ws.cell(r, 9, p.get("memo")))
+        ws[f"H{r}"] = (f'=IF(D{r}="","",IF(AND(OR(F{r}="계좌이체",F{r}="현금"),'
+                       f'G{r}<>"발급완료",G{r}<>"해당없음"),"영수증 확인",""))')
+        ws[f"H{r}"].font = F_BASE
+    dv = DataValidation(type="list", formula1=f"지출계획!$B${first}:$B${last}", allow_blank=True)
+    ws.add_data_validation(dv)
+    dv.add(f"B{PAY_FIRST}:B{PAY_LAST}")
+    for col, opts in zip("CEFG", (PAY_TYPES, PAYERS, METHODS, RECEIPTS)):
+        validation(ws, ",".join(opts), f"{col}{PAY_FIRST}:{col}{PAY_LAST}")
+    ws.conditional_formatting.add(f"H{PAY_FIRST}:H{PAY_LAST}",
+                                  CellIsRule(operator="equal", formula=['"영수증 확인"'], fill=FILL_RED))
+
+    amt, payer, method, receipt, check = (f"${c}${PAY_FIRST}:${c}${PAY_LAST}" for c in "DEFGH")
+    ws["K4"], ws["K4"].font = "결제자별 합계", F_SECTION
+    header(ws, 5, ["결제자"] + METHODS + ["합계"], col=11)
+    for r, who in enumerate(PAYERS, 6):
+        ws.cell(r, 11, who)
+        for i, m in enumerate(METHODS):
+            ws.cell(r, 12 + i, f'=SUMIFS({amt},{payer},$K{r},{method},"{m}")').number_format = WON
+        ws.cell(r, 15, f"=SUMIFS({amt},{payer},$K{r})").number_format = WON
+    tot = 6 + len(PAYERS)
+    ws.cell(tot, 11, "합계").font = F_BOLD
+    for col in "LMNO":
+        ws[f"{col}{tot}"] = f"=SUM({col}6:{col}{tot - 1})"
+        ws[f"{col}{tot}"].number_format, ws[f"{col}{tot}"].font = WON, F_BOLD
+    ws.cell(tot + 1, 11, "결제자 미입력")
+    ws.cell(tot + 1, 15, f"=SUM({amt})-O{tot}").number_format = WON
+
+    ws["K15"], ws["K15"].font = "현금영수증", F_SECTION
+    for r, (label, f, fmt) in enumerate([
+        ("발급완료 금액", f'=SUMIFS({amt},{receipt},"발급완료")', WON),
+        ("미발급 금액", f'=SUMIFS({amt},{receipt},"미발급")', WON),
+        ("확인 필요 건수", f'=COUNTIF({check},"영수증 확인")', '0"건"'),
+    ], 16):
+        ws.cell(r, 11, label)
+        ws.cell(r, 12, f).number_format = fmt
+    ws["K19"] = "계좌이체·현금인데 발급완료/해당없음이 아니면 '영수증 확인'으로 표시됩니다."
+    ws["K19"].font = F_NOTE
+    ws.column_dimensions["J"].width = 3  # 결제 목록과 합계표 사이 간격
+    ws.freeze_panes = f"A{PAY_FIRST}"
 
 
 def build_cashflow(wb, first, last, funds_ref):
@@ -313,9 +386,6 @@ def build_cashflow(wb, first, last, funds_ref):
         for col in "BCDEFG":
             ws[f"{col}{r}"].number_format = WON
     ws.conditional_formatting.add(f"G5:G{end}", CellIsRule(operator="lessThan", formula=["0"], fill=FILL_RED))
-    ws.column_dimensions["A"].width = 12
-    for col in "BCDEFG":
-        ws.column_dimensions[col].width = 15
 
 
 def build_bench(wb):
@@ -337,20 +407,16 @@ def build_bench(wb):
         ws.cell(r, 8, "비교" if it.get("comparable", True) else "참고")
         ws.cell(r, 9, it["source"])
     r += 2
-    ws.cell(r, 1, "출처").font = F_BOLD
+    ws.cell(r, 1, "출처").font = F_SECTION
     for k, v in BENCH["sources"].items():
         r += 1
-        ws.cell(r, 1, k)
-        ws.cell(r, 2, v)
+        ws.cell(r, 1, f"{k}: {v}").font = F_NOTE
     r += 2
-    ws.cell(r, 1, "참고(듀오 평균, 이 표 계산에는 안 씀)").font = F_BOLD
+    ws.cell(r, 1, "참고(듀오 평균, 이 표 계산에는 안 씀)").font = F_SECTION
     for k, v in BENCH["reference_only"].items():
         r += 1
         ws.cell(r, 1, k)
         ws.cell(r, 3, v * MAN).number_format = WON
-    ws.column_dimensions["B"].width = 24
-    for col in "CDEFG":
-        ws.column_dimensions[col].width = 12
 
 
 def build_dashboard(ws, first, last, funds_ref, meal_ref, gift_ref):
@@ -372,6 +438,9 @@ def build_dashboard(ws, first, last, funds_ref, meal_ref, gift_ref):
         ("기준값 대비 배율 (비교 가능 항목)", f'=IFERROR(SUMIFS({g},{w},"Y",{g},">0")/SUMIFS({q},{w},"Y",{g},">0"),"")', '0.00"배"'),
         ("'높음' 항목 수", f'=COUNTIF({s},"높음")', "0\"개\""),
         ("놓치기 쉬운 비용 중 0원 항목", f'=COUNTIFS({t},"★",{g},0)', "0\"개\""),
+        ("납부 완료 (결제기록)", f"=SUM({PAY_AMT})", WON),
+        ("남은 결제액", f"=SUM({p}$O${first}:$O${last})", WON),
+        ("현금영수증 확인 필요", f'=COUNTIF({PAY}$H${PAY_FIRST}:$H${PAY_LAST},"영수증 확인")', "0\"건\""),
     ]
     for i, (label, f, fmt) in enumerate(kpis, 4):
         ws.cell(i, 1, label).font = F_BOLD
@@ -382,12 +451,15 @@ def build_dashboard(ws, first, last, funds_ref, meal_ref, gift_ref):
     ws.conditional_formatting.add("B9", CellIsRule(operator="lessThan", formula=["0"], fill=FILL_RED))
     ws["C9"] = '=IF(B9<0,"가용자금보다 예상 지출이 많습니다","")'
     ws["C15"] = '=IF(B15>0,"지출계획에서 빨간 항목명을 확인하세요","")'
-    ws["C9"].font = ws["C15"].font = F_NOTE
+    ws["C18"] = '=IF(B18>0,"결제기록 시트의 \'영수증 확인\' 줄을 확인하세요","")'
+    ws["C9"].font = ws["C15"].font = ws["C18"].font = F_NOTE
+    ws["A19"] = "신랑·신부별 결제 합계와 결제수단별 합계는 결제기록 시트 오른쪽에 있습니다."
+    ws["A19"].font = F_NOTE
 
-    ws["A18"], ws["A18"].font = "대분류별", F_BOLD
-    header(ws, 19, ["대분류", "예상 지출", "기준값 합계", "배율", "비중"])
+    ws["A21"], ws["A21"].font = "대분류별", F_SECTION
+    header(ws, 22, ["대분류", "예상 지출", "기준값 합계", "배율", "비중"])
     cats = list(dict.fromkeys(it["category"] for it in BENCH["items"]))
-    for r, cat in enumerate(cats, 20):
+    for r, cat in enumerate(cats, 23):
         ws.cell(r, 1, cat)
         ws.cell(r, 2, f'=SUMIFS({g},{a},A{r})').number_format = WON
         ws.cell(r, 3, f'=SUMIFS({q},{a},A{r},{w},"Y",{g},">0")').number_format = WON
@@ -395,13 +467,68 @@ def build_dashboard(ws, first, last, funds_ref, meal_ref, gift_ref):
         ws.cell(r, 5, f'=IF($B$7=0,"",B{r}/$B$7)').number_format = "0%"
     end = r + 1
     ws.cell(end, 1, "기타(추가 항목)")
-    ws.cell(end, 2, f"=B7-SUM(B20:B{r})").number_format = WON
+    ws.cell(end, 2, f"=B7-SUM(B23:B{r})").number_format = WON
     ws.cell(end + 2, 1, "참고: 듀오 2026 평균 혼수 "
             f"{BENCH['reference_only']['혼수']:,}만원, 신혼집 {BENCH['reference_only']['신혼집']:,}만원 (이 표에는 포함 안 함)").font = F_NOTE
-    ws.column_dimensions["A"].width = 32
-    for col in "BCDE":
-        ws.column_dimensions[col].width = 16
-    ws.column_dimensions["C"].width = 34
+
+
+def text_width(v):
+    """엑셀 열 너비 단위로 대략 환산. 한글 등 전각 문자는 2칸."""
+    return sum(2 if ord(ch) >= 0x1100 else 1 for ch in str(v))
+
+
+def cell_width(c):
+    v = c.value
+    if isinstance(v, str) and v.startswith("="):  # 수식은 결과 형식으로 추정
+        return 14 if c.number_format == "#,##0" else 11
+    if isinstance(v, (dt.date, dt.datetime)):
+        return 11
+    if isinstance(v, (int, float)):
+        return len(f"{v:,.0f}") + 2
+    return text_width(v)
+
+
+def polish(wb, max_width=42):
+    """가독성 마무리: 글꼴 통일, 눈금선 숨김, 표 테두리, 열 너비 자동, 긴 글 줄바꿈과 행 높이.
+
+    표 셀 = 글자 크기 BODY 인 셀. 제목·섹션·설명(크기가 다름)은 테두리와 너비 계산에서 뺀다.
+    """
+    wb.calculation.fullCalcOnLoad = True  # 여는 앱이 수식을 다시 계산하게
+    for ws in wb:
+        ws.sheet_view.showGridLines = False
+        ws.row_dimensions[1].height = 30
+        widths, wrapped = {}, {}
+        for row in ws.iter_rows():
+            for c in row:
+                filled = c.fill.fill_type == "solid"
+                if c.value is None and not filled:
+                    continue
+                if c.font.name != FONT:  # 글꼴을 따로 안 준 셀
+                    c.font = Font(name=FONT, size=BODY, bold=c.font.b)
+                if c.font.sz != BODY:
+                    continue
+                c.border = BORDER
+                if c.fill == FILL_HEAD:
+                    ws.row_dimensions[c.row].height = 32
+                    continue
+                w = cell_width(c) if c.value is not None else 0
+                if w > max_width:
+                    wrapped[c.coordinate] = w
+                    w = max_width
+                widths[c.column_letter] = max(widths.get(c.column_letter, 0), w)
+                c.alignment = Alignment(horizontal=c.alignment.horizontal, vertical="center")
+                if not ws.row_dimensions[c.row].height:
+                    ws.row_dimensions[c.row].height = 22  # 기본 행 높이를 무시하는 앱이 있어 직접 지정
+        for col, w in widths.items():
+            preset = col in ws.column_dimensions  # 코드에서 직접 너비를 정한 열만 이미 존재한다
+            cd = ws.column_dimensions[col]
+            if not cd.hidden:  # 직접 정한 너비가 있으면 그보다 좁히지 않음
+                cd.width = max(w + 3, 8, cd.width if preset else 0)
+        for ref, w in wrapped.items():
+            c = ws[ref]
+            c.alignment = Alignment(horizontal=c.alignment.horizontal, vertical="center", wrap_text=True)
+            lines = -(-w // (max_width - 2))
+            ws.row_dimensions[c.row].height = max(ws.row_dimensions[c.row].height or 20, 16 * lines + 6)
 
 
 def build(d):
@@ -420,9 +547,11 @@ def build(d):
     funds_ref = build_info(wb, d)
     meal_ref, gift_ref = build_guests(wb, d)
     first, last = build_plan(wb, d, meal_ref)
+    build_payments(wb, d, first, last)
     build_cashflow(wb, first, last, funds_ref)
     build_bench(wb)
     build_dashboard(dash, first, last, funds_ref, meal_ref, gift_ref)
+    polish(wb)
     return wb
 
 

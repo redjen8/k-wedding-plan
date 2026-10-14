@@ -18,14 +18,14 @@
     "신부": {"가족": [28, 3], "친구": [35, 0], "회사": [20, 0], "부모님 지인": [15, 0], "기타": [2, 0]}
   },
   "items": {
-    "대관료": {"budget": 3000000, "quote": 3300000, "discount": 300000, "deposit": 1000000, "deposit_date": "2026-05-10", "balance_date": "2027-04-17", "payer": "공통", "method": "계좌이체", "status": "계약"},
-    "식대": {"deposit_date": "2026-05-10", "balance_date": "2027-04-17", "payer": "공통", "method": "계좌이체", "status": "계약"},
+    "대관료": {"budget": 3000000, "quote": 3300000, "discount": 300000, "deposit": 1000000, "deposit_date": "2026-05-10", "balance_date": "2027-04-17", "status": "계약"},
+    "식대": {"deposit_date": "2026-05-10", "balance_date": "2027-04-17", "status": "계약"},
     "생화 꽃장식": {"budget": "avg"},
     "외부 본식스냅": {"budget": 1800000, "deposit": 300000, "deposit_date": "2026-07-02", "balance_date": "2027-04-10", "status": "계약"},
     "사회자": {"budget": 300000},
     "축가": {"budget": 400000},
-    "스드메 패키지": {"budget": 2600000, "quote": 2750000, "deposit": 500000, "deposit_date": "2026-06-20", "middle": 1000000, "middle_date": "2026-11-15", "balance_date": "2027-03-20", "payer": "신부", "method": "카드", "status": "계약"},
-    "헬퍼(촬영·본식)": {"budget": 500000, "method": "현금"},
+    "스드메 패키지": {"budget": 2600000, "quote": 2750000, "deposit": 500000, "deposit_date": "2026-06-20", "middle": 1000000, "middle_date": "2026-11-15", "balance_date": "2027-03-20", "status": "계약"},
+    "헬퍼(촬영·본식)": {"budget": 500000},
     "신랑 예복": {"budget": 900000, "memo": "맞춤 정장"},
     "혼주 헤어메이크업(양가)": {"budget": "avg"},
     "예물(웨딩밴드 포함)": {"budget": 4000000, "deposit": 1000000, "deposit_date": "2026-12-05", "balance_date": "2027-02-05"},
@@ -35,5 +35,10 @@
   },
   "extra_items": [
     {"category": "기타", "name": "웨딩슈즈", "budget": 150000}
+  ],
+  "payments": [
+    {"date": "2026-05-10", "item": "대관료", "type": "계약금", "amount": 1000000, "payer": "공통", "method": "카드"},
+    {"date": "2026-06-20", "item": "스드메 패키지", "type": "계약금", "amount": 500000, "payer": "신부", "method": "계좌이체", "receipt": "발급완료"},
+    {"date": "2026-07-02", "item": "외부 본식스냅", "type": "계약금", "amount": 300000, "payer": "신랑", "method": "계좌이체"}
   ]
 }

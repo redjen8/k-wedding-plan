@@ -80,9 +80,9 @@ def test_budget(tmp):
     r = build(BUDGET, sample(BUDGET), out)
     assert r.returncode == 0, r.stderr
     wb = openpyxl.load_workbook(out)
-    assert wb.sheetnames == ["대시보드", "기본정보", "하객식대", "지출계획", "월별자금", "기준표"], wb.sheetnames
+    assert wb.sheetnames == ["대시보드", "기본정보", "하객식대", "지출계획", "결제기록", "월별자금", "기준표"], wb.sheetnames
     plan = wb["지출계획"]
-    for col in "FGLQRS":  # 대관료 행의 계산 열은 수식이어야 함
+    for col in "FGLNOQRS":  # 대관료 행의 계산 열은 수식이어야 함
         assert str(plan[f"{col}6"].value).startswith("="), (col, plan[f"{col}6"].value)
     assert str(wb["하객식대"]["B17"].value).startswith("=")
     for ref in ("B6", "B7", "B9", "B13"):
@@ -91,7 +91,12 @@ def test_budget(tmp):
 
     base = sample(BUDGET)
     expect_bad(BUDGET, [dict(base, region="화성"), dict(base, wedding_date="2027/04/17"),
-                        dict(base, items={"없는항목": {"budget": 1}}), dict(base, meal_price=-1)], tmp)
+                        dict(base, items={"없는항목": {"budget": 1}}), dict(base, meal_price=-1),
+                        dict(base, items={"대관료": {"payer": "신랑"}}),  # 결제자는 payments 로 옮겨감
+                        dict(base, payments=[{"item": "없는항목", "amount": 1}]),
+                        dict(base, payments=[{"item": "대관료", "amount": 1, "method": "수표"}]),
+                        dict(base, extra_items=[{"name": "대관료"}]),  # 기본 항목과 이름 중복
+                        dict(base, extra_items=[{"name": "꽃*"}])], tmp)
     minimal = {k: base[k] for k in ("wedding_date", "region", "meal_price", "guaranteed_guests")}
     r = build(BUDGET, minimal, tmp / "bmin.xlsx")
     assert r.returncode == 0, r.stderr
@@ -115,6 +120,16 @@ def test_budget(tmp):
     assert vals["지출계획!Q6"] == 300 * 10000  # 경인 대관료 중간값
     assert vals["대시보드!B9"] == vals["대시보드!B6"] - vals["대시보드!B7"]
     assert vals["월별자금!G36"] == vals["대시보드!B9"]  # 모든 지급이 월별자금에 잡힘
+    # 결제기록: 대관료 계약금 100만(공통·카드), 스드메 50만(신부·계좌이체·발급), 스냅 30만(신랑·계좌이체·미기재)
+    assert vals["지출계획!N6"] == 1000000 and vals["지출계획!O6"] == 3000000 - 1000000
+    assert vals["결제기록!M7"] == 500000  # 신부 × 계좌이체
+    assert vals["결제기록!O6"] == 300000  # 신랑 합계
+    assert vals["결제기록!L18"] == 1  # 현금영수증 확인 필요(신랑 계좌이체)
+    assert vals["대시보드!B16"] == 1800000 and vals["대시보드!B18"] == 1
+    assert vals["결제기록!L16"] == 500000 and vals["결제기록!O12"] == 0  # 발급완료 금액, 결제자 미입력
+    plan_wb = openpyxl.load_workbook(out)["지출계획"]
+    total_row = next(r for r in range(6, plan_wb.max_row + 1) if plan_wb[f"A{r}"].value == "합계")
+    assert vals["대시보드!B17"] == vals[f"지출계획!O{total_row}"]
     wb = openpyxl.load_workbook(out)
     wb["기본정보"]["B7"] = "서울"
     wb.save(tmp / "seoul.xlsx")

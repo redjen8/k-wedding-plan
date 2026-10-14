@@ -11,7 +11,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.formatting.rule import CellIsRule
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
 DATA = json.loads((Path(__file__).resolve().parent.parent / "references" / "checklists.json").read_text("utf-8"))
@@ -19,11 +19,15 @@ TASKS = DATA["tasks"]
 SHOOT_DEFAULT = 150  # 촬영일을 모를 때 예식 며칠 전으로 볼지
 
 FONT = "맑은 고딕"
-F_BASE = Font(name=FONT, size=10)
-F_INPUT = Font(name=FONT, size=10, color="0000FF")
-F_BOLD = Font(name=FONT, size=10, bold=True)
-F_TITLE = Font(name=FONT, size=14, bold=True)
-F_NOTE = Font(name=FONT, size=9, color="666666")
+BODY = 11  # 표 본문 글자 크기. polish()는 이 크기인 셀만 표로 본다
+F_BASE = Font(name=FONT, size=BODY)
+F_INPUT = Font(name=FONT, size=BODY, color="0000FF")
+F_BOLD = Font(name=FONT, size=BODY, bold=True)
+F_TITLE = Font(name=FONT, size=16, bold=True)
+F_SECTION = Font(name=FONT, size=12, bold=True, color="1F4E79")
+F_NOTE = Font(name=FONT, size=10, color="666666")
+THIN = Side(style="thin", color="C9D1E0")
+BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 FILL_INPUT = PatternFill("solid", fgColor="FFF2CC")
 FILL_HEAD = PatternFill("solid", fgColor="D9E1F2")
 FILL_RED = PatternFill("solid", fgColor="F8CBAD")
@@ -100,9 +104,6 @@ def build_info(wb, d):
     for r in (6, 7, 8):
         ws.cell(r, 4).font = F_NOTE
     validation(ws, "확정,추정", "C6:C7")
-    ws.column_dimensions["A"].width = 20
-    ws.column_dimensions["B"].width = 14
-    ws.column_dimensions["C"].width = 20
 
 
 def build_timeline(wb, d):
@@ -157,9 +158,7 @@ def build_timeline(wb, d):
         ws.conditional_formatting.add(rng, CellIsRule(operator="equal", formula=[f'"{text}"'], fill=fill))
     ws.auto_filter.ref = f"A5:Q{last}"
     ws.freeze_panes = f"C{FIRST}"
-    widths = [12, 30, 7, 7, 8, 8, 11, 11, 9, 9, 9, 10, 6, 6, 60, 20, 14]
-    for i, w in enumerate(widths, 1):
-        ws.column_dimensions[ws.cell(5, i).column_letter].width = w
+    ws.column_dimensions["P"].width = 24  # 메모 칸은 비어 있어도 쓸 자리를 둔다
     ws.column_dimensions["Q"].hidden = True
     return last
 
@@ -195,7 +194,7 @@ def build_overview(ws, last):
     ws.conditional_formatting.add("B12", CellIsRule(operator="greaterThan", formula=["0"], fill=FILL_RED))
 
     ws["A17"] = "단계별 진행"
-    ws["A17"].font = F_BOLD
+    ws["A17"].font = F_SECTION
     header(ws, 18, ["단계", "할 일", "완료", "해당없음", "진행률", "지연"])
     phases = list(dict.fromkeys(x["phase"] for x in TASKS))
     for r, p in enumerate(phases, 19):
@@ -205,10 +204,6 @@ def build_overview(ws, last):
         ws.cell(r, 4, f'=COUNTIFS({a},A{r},{j},"해당없음")')
         ws.cell(r, 5, f"=IF(B{r}-D{r}=0,\"\",C{r}/(B{r}-D{r}))").number_format = "0%"
         ws.cell(r, 6, f'=COUNTIFS({a},A{r},{l},"지연")')
-    ws.column_dimensions["A"].width = 22
-    for col in "BCDEF":
-        ws.column_dimensions[col].width = 13
-    ws.column_dimensions["C"].width = 40
 
 
 def build_hall_tour(wb, halls):
@@ -228,7 +223,7 @@ def build_hall_tour(wb, halls):
                 style_input(ws.cell(r, 3 + i))
             r += 1
     r += 1
-    ws.cell(r, 1, "점수표").font = F_BOLD
+    ws.cell(r, 1, "점수표").font = F_SECTION
     header(ws, r + 1, ["평가 기준", "가중치(1~5)", "홀 1 점수", "홀 2 점수", "홀 3 점수", "홀 4 점수"])
     first = r + 2
     for k, name in enumerate(DATA["hall_scores"]):
@@ -245,10 +240,8 @@ def build_hall_tour(wb, halls):
     best = f"MATCH(MAX(C{tot}:F{tot}),C{tot}:F{tot},0)"
     ws.cell(tot + 1, 3, f'=IF(MAX(C{tot}:F{tot})=0,"",IF(INDEX(C5:F5,{best})="","홀 "&{best},INDEX(C5:F5,{best})))')
     ws.cell(tot + 2, 1, "가중치는 타임라인의 '우선순위 정하기'에서 정한 순서대로 주면 됩니다.").font = F_NOTE
-    ws.column_dimensions["A"].width = 14
-    ws.column_dimensions["B"].width = 32
     for col in "CDEF":
-        ws.column_dimensions[col].width = 22
+        ws.column_dimensions[col].width = 24  # 투어 메모를 적을 자리
     ws.freeze_panes = "C6"
 
 
@@ -260,7 +253,7 @@ def build_day_of(wb):
     sections = [("준비물", ["항목", "챙길 사람", "완료"], day["items"]),
                 ("역할", ["역할", "맡은 사람", "확인"], day["roles"])]
     for name, cols, items in sections:
-        ws.cell(r, 1, name).font = F_BOLD
+        ws.cell(r, 1, name).font = F_SECTION
         header(ws, r + 1, cols)
         for k, item in enumerate(items, r + 2):
             ws.cell(k, 1, item).font = F_BASE
@@ -268,7 +261,7 @@ def build_day_of(wb):
             style_input(ws.cell(k, 3))
         validation(ws, "완료", f"C{r + 2}:C{r + 1 + len(items)}")
         r += len(items) + 3
-    ws.cell(r, 1, "현금 봉투").font = F_BOLD
+    ws.cell(r, 1, "현금 봉투").font = F_SECTION
     header(ws, r + 1, ["대상", "받는 분", "금액", "봉투 준비"])
     first = r + 2
     for k, item in enumerate(day["cash"], first):
@@ -281,9 +274,67 @@ def build_day_of(wb):
     ws.cell(end + 1, 1, "합계").font = F_BOLD
     ws.cell(end + 1, 3, f"=SUM(C{first}:C{end})").number_format = "#,##0"
     ws.cell(end + 1, 3).font = F_BOLD
-    ws.column_dimensions["A"].width = 32
-    for col in "BCD":
-        ws.column_dimensions[col].width = 16
+    for col in "BC":
+        ws.column_dimensions[col].width = 18  # 이름·금액을 적을 자리
+
+
+def text_width(v):
+    """엑셀 열 너비 단위로 대략 환산. 한글 등 전각 문자는 2칸."""
+    return sum(2 if ord(ch) >= 0x1100 else 1 for ch in str(v))
+
+
+def cell_width(c):
+    v = c.value
+    if isinstance(v, str) and v.startswith("="):  # 수식은 결과 형식으로 추정
+        return 14 if c.number_format == "#,##0" else 11
+    if isinstance(v, (dt.date, dt.datetime)):
+        return 11
+    if isinstance(v, (int, float)):
+        return len(f"{v:,.0f}") + 2
+    return text_width(v)
+
+
+def polish(wb, max_width=42):
+    """가독성 마무리: 글꼴 통일, 눈금선 숨김, 표 테두리, 열 너비 자동, 긴 글 줄바꿈과 행 높이.
+
+    표 셀 = 글자 크기 BODY 인 셀. 제목·섹션·설명(크기가 다름)은 테두리와 너비 계산에서 뺀다.
+    """
+    wb.calculation.fullCalcOnLoad = True  # 여는 앱이 수식을 다시 계산하게
+    for ws in wb:
+        ws.sheet_view.showGridLines = False
+        ws.row_dimensions[1].height = 30
+        widths, wrapped = {}, {}
+        for row in ws.iter_rows():
+            for c in row:
+                filled = c.fill.fill_type == "solid"
+                if c.value is None and not filled:
+                    continue
+                if c.font.name != FONT:  # 글꼴을 따로 안 준 셀
+                    c.font = Font(name=FONT, size=BODY, bold=c.font.b)
+                if c.font.sz != BODY:
+                    continue
+                c.border = BORDER
+                if c.fill == FILL_HEAD:
+                    ws.row_dimensions[c.row].height = 32
+                    continue
+                w = cell_width(c) if c.value is not None else 0
+                if w > max_width:
+                    wrapped[c.coordinate] = w
+                    w = max_width
+                widths[c.column_letter] = max(widths.get(c.column_letter, 0), w)
+                c.alignment = Alignment(horizontal=c.alignment.horizontal, vertical="center")
+                if not ws.row_dimensions[c.row].height:
+                    ws.row_dimensions[c.row].height = 22  # 기본 행 높이를 무시하는 앱이 있어 직접 지정
+        for col, w in widths.items():
+            preset = col in ws.column_dimensions  # 코드에서 직접 너비를 정한 열만 이미 존재한다
+            cd = ws.column_dimensions[col]
+            if not cd.hidden:  # 직접 정한 너비가 있으면 그보다 좁히지 않음
+                cd.width = max(w + 3, 8, cd.width if preset else 0)
+        for ref, w in wrapped.items():
+            c = ws[ref]
+            c.alignment = Alignment(horizontal=c.alignment.horizontal, vertical="center", wrap_text=True)
+            lines = -(-w // (max_width - 2))
+            ws.row_dimensions[c.row].height = max(ws.row_dimensions[c.row].height or 20, 16 * lines + 6)
 
 
 def normalize(d):
@@ -320,6 +371,7 @@ def build(d):
     build_hall_tour(wb, d["halls"])
     build_day_of(wb)
     build_overview(overview, last)
+    polish(wb)
     return wb
 
 
