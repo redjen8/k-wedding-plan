@@ -386,6 +386,8 @@ def build_dress_tour(wb, d, first, last):
     if not {"quote", "discount"} & set(items.get(name, {})):
         # 선택과 상관없이 투어한 샵 피팅비 합계(지정이면 0). 이름 있는 샵이 없으면 예산으로
         plan[f"D{prow[name]}"] = f'=IF(COUNTIF({names},"?*")=0,"",SUM(드레스투어!{fits}))'
+    # 지정이면 피팅비가 없는 게 정상이라 '놓치기 쉬운 비용 0원'(대시보드 집계·빨간 항목명)에서 뺀다
+    plan[f"T{prow[name]}"] = '=IF(드레스투어!$C$6="지정","","★")'
 
     r = cheap + 2
     ws.cell(r, 1, "특징").font = F_SECTION

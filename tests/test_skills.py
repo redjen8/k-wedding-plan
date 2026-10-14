@@ -215,6 +215,8 @@ def test_dress_tour(tmp):
     vals = calc(path)
     assert_no_errors(vals, path.name)
     assert vals[d("드레스 투어 피팅비")] == 0 and vals[e("드레스(단품)")] == 300000
+    star = f"지출계획!T{row['드레스 투어 피팅비']}"
+    assert vals[star] == "" and calc(out)[star] == "★"  # 지정이면 ★ 0원 경고에서 빠짐, 투어면 그대로
     assert vals[g("드레스(단품)")] == vals[t("이 샵으로 정할 때 총부담", "C")] == 1700000
     # 지정인데 샵 2를 적고 고르면: 경고, 지출계획에 안 들어감
     ws["D5"], ws[f"D{lab['드레스 기본가(촬영+본식)']}"], ws["C7"] = "B드레스", 1000000, "B드레스"
